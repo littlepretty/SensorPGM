@@ -3,6 +3,7 @@
 import csv
 import logging as lg
 import numpy as np
+import matplotlib.pyplot as plt
 from python_log_indenter import IndentedLoggerAdapter
 
 
@@ -31,29 +32,42 @@ def learnModel(filename, n=48, m=50):
 
 def windowInferenceError(day, means, percentage, n=48, m=50):
     error = []
+    f = open('w%d.csv' % int(percentage * 100), 'wb')
+    writer = csv.writer(f)
+    writer.writerow(title)
+    infer_data = np.zeros((m, n))
     for i in range(0, n):
         test_data = day[:, i]
         # predict by generate random number? or just use mean
-        infer_data = means[:, i]
+        infer_data[:, i] = means[:, i]
 
         window_start = int(i * m * percentage) % m
         window_size = int(m * percentage)
         """replace inferred data with test data for these inside window"""
         for k in range(window_start, window_start + window_size):
             index = k % m
-            infer_data[index] = test_data[index]
+            infer_data[index, i] = test_data[index]
         """absolute error for time i"""
-        error_i = np.subtract(test_data, infer_data)
+        error_i = np.subtract(test_data, infer_data[:, i])
         error_i = np.absolute(error_i)
         error.append(error_i)
+
+    for i in range(0, m):
+        row = [x for x in infer_data[i, :]]
+        row.insert(0, i)
+        writer.writerow(row)
     return error
 
 
 def varianceInferenceError(day, means, percentage, n=48, m=50):
     error = []
+    f = open('w%d.csv' % int(percentage * 100), 'wb')
+    writer = csv.writer(f)
+    writer.writerow(title)
+    infer_data = np.zeros((m, n))
     for i in range(0, n):
         test_data = day[:, i]
-        infer_data = means[:, i]
+        infer_data[:, i] = means[:, i]
         if i != 0:
             """find maximum variances' index"""
             last_error = error[-1]
@@ -69,11 +83,16 @@ def varianceInferenceError(day, means, percentage, n=48, m=50):
                 max_indices.append(max_index)
             """replace most variant data with test data"""
             for index in max_indices:
-                infer_data[index] = test_data[index]
+                infer_data[index, i] = test_data[index]
         """absolute error for time i"""
-        error_i = np.subtract(test_data, infer_data)
+        error_i = np.subtract(test_data, infer_data[:, i])
         error_i = np.absolute(error_i)
         error.append(error_i)
+
+    for i in range(0, m):
+        row = [x for x in infer_data[i, :]]
+        row.insert(0, i)
+        writer.writerow(row)
     return error
 
 
@@ -83,7 +102,7 @@ def inferenceTest(filename, means, n=48, m=50):
     data = np.array(list(reader)).astype('float')
     day1 = data[:, 0:n]
     day2 = data[:, n:n*2]
-    percentage = [0, 0.05, 0.1, 0.25, 0.5]
+
     win_avg_errors = []
     var_avg_errors = []
     for p in percentage:
@@ -105,20 +124,45 @@ def inferenceTest(filename, means, n=48, m=50):
         log.debug('error matrix \n' + str(total_err))
         log.add().info('avg error = ' + str(var_avg_err))
         log.sub()
-        var_avg_errors.append(win_avg_err)
+        var_avg_errors.append(var_avg_err)
 
-    return [win_avg_errors, var_avg_errors]
+    return win_avg_errors, var_avg_errors
+
+
+def plotAvgError(win, var):
+    index = np.arange(len(percentage))
+    bar_width = 0.27
+    fig, ax = plt.subplots()
+    rect1 = ax.bar(index, win, bar_width, color='b', hatch='/')
+    rect2 = ax.bar(index + bar_width, var, bar_width, color='r', hatch='\\')
+    ax.set_ylabel('Mean Absolute Error')
+    ax.set_xlabel('Budget Percentage')
+    ax.set_xticks(index + bar_width)
+    ax.set_xticklabels(('0%', '%5', '10%', '25%', '50%'))
+    ax.legend((rect1[0], rect2[0]), ('Window', 'Variance'))
+    plt.show()
 
 
 def main(train_file, test_file):
     means, stdevs = learnModel(train_file)
-    (win_avg_err, var_avg_err) = inferenceTest(test_file, means)
+    win, var = inferenceTest(test_file, means)
+    plotAvgError(win, var)
 
 
 if __name__ == '__main__':
     # lg.basicConfig(level=lg.DEBUG)
     lg.basicConfig(level=lg.INFO)
     log = IndentedLoggerAdapter(lg.getLogger(__name__))
+    title = ['sensors', 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0,
+             5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0,
+             11.5, 12.0, 12.5, 13.0, 13.5, 14.0, 14.5, 15.0, 15.5, 16.0,
+             16.5, 17.0, 17.5, 18.0, 18.5, 19.0, 19.5, 20.0, 20.5, 21.0,
+             21.5, 22.0, 22.5, 23.0, 23.5, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5,
+             3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5,
+             9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5,
+             14.0, 14.5, 15.0, 15.5, 16.0, 16.5, 17.0, 17.5, 18.0, 18.5,
+             19.0, 19.5, 20.0, 20.5, 21.0, 21.5, 22.0, 22.5, 23.0, 23.5, 0.0]
+    percentage = [0, 0.05, 0.1, 0.25, 0.5]
     log.info('Processing Temperature')
     log.add()
     main('intelTemperatureTrain.csv', 'intelTemperatureTest.csv')
