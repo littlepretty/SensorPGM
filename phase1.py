@@ -129,24 +129,26 @@ def inferenceTest(filename, means, n=48, m=50):
     return win_avg_errors, var_avg_errors
 
 
-def plotAvgError(win, var):
+def plotAvgError(win, var, prefix):
     index = np.arange(len(percentage))
-    bar_width = 0.27
+    bar_width = 0.32
     fig, ax = plt.subplots()
     rect1 = ax.bar(index, win, bar_width, color='b', hatch='/')
     rect2 = ax.bar(index + bar_width, var, bar_width, color='r', hatch='\\')
+    ax.set_xlim([-0.5, 5])
     ax.set_ylabel('Mean Absolute Error')
     ax.set_xlabel('Budget Percentage')
     ax.set_xticks(index + bar_width)
-    ax.set_xticklabels(('0%', '%5', '10%', '25%', '50%'))
+    ax.set_xticklabels(('0%', '5%', '10%', '25%', '50%'))
     ax.legend((rect1[0], rect2[0]), ('Window', 'Variance'))
+    plt.savefig('cmp_err_%s.eps' % prefix, format='eps')
     plt.show()
 
 
-def main(train_file, test_file):
+def main(train_file, test_file, topic):
     means, stdevs = learnModel(train_file)
     win, var = inferenceTest(test_file, means)
-    plotAvgError(win, var)
+    plotAvgError(win, var, topic)
 
 
 if __name__ == '__main__':
@@ -165,10 +167,10 @@ if __name__ == '__main__':
     percentage = [0, 0.05, 0.1, 0.25, 0.5]
     log.info('Processing Temperature')
     log.add()
-    main('intelTemperatureTrain.csv', 'intelTemperatureTest.csv')
+    main('intelTemperatureTrain.csv', 'intelTemperatureTest.csv', 'Temperature')
     log.sub()
 
     log.info('Processing Humidity')
     log.add()
-    main('intelHumidityTrain.csv', 'intelHumidityTest.csv')
+    main('intelHumidityTrain.csv', 'intelHumidityTest.csv', 'Humidity')
     log.sub()
