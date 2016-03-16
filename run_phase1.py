@@ -31,7 +31,7 @@ def learnModel(filename, n=48, m=50):
     return means, stdevs
 
 
-def windowInferenceError(day, means, b_cnt, n=48, m=50):
+def windowInferenceError(day, means, b_cnt, n=96, m=50):
     error = []
     f = open('w%d.csv' % b_cnt, 'wb')
     writer = csv.writer(f)
@@ -39,11 +39,10 @@ def windowInferenceError(day, means, b_cnt, n=48, m=50):
     infer_data = np.zeros((m, n))
     for i in range(0, n):
         test_data = day[:, i]
-        # predict by generate random number? or just use mean
-        infer_data[:, i] = means[:, i]
-
+        infer_data[:, i] = means[:, i % 48]
         window_start = int(i * b_cnt) % m
         window_size = b_cnt
+        log.debug(str(range(window_start, window_start + window_size)))
         """replace inferred data with test data for these inside window"""
         for k in range(window_start, window_start + window_size):
             index = k % m
@@ -73,22 +72,23 @@ def findLargestK(error, budget, m=50):
                 count += 1
         if count >= m - budget:
             max_indices.append(index)
+
     log.debug('read sensors %s' % str(max_indices))
     log.debug('#sensors = %d' % len(max_indices))
     return max_indices
 
 
-def varianceInferenceError(day, means, stdevs, b_cnt, n=48, m=50):
+def varianceInferenceError(day, means, stdevs, b_cnt, n=96, m=50):
     error = []
-    f = open('w%d.csv' % b_cnt, 'wb')
+    f = open('v%d.csv' % b_cnt, 'wb')
     writer = csv.writer(f)
     writer.writerow(title)
     infer_data = np.zeros((m, n))
     for i in range(0, n):
         test_data = day[:, i]
-        infer_data[:, i] = means[:, i]
+        infer_data[:, i] = means[:, i % 48]
         """find maximum variances' index"""
-        variance = stdevs[:, i]
+        variance = stdevs[:, i % 48]
         max_indices = findLargestK(variance, b_cnt, m)
         """replace most variant data with test data"""
         for index in max_indices:
@@ -105,30 +105,24 @@ def varianceInferenceError(day, means, stdevs, b_cnt, n=48, m=50):
     return error
 
 
-def inferenceTest(filename, means, stdevs, n=48, m=50):
+def inferenceTest(filename, means, stdevs, n=96, m=50):
     f = open(filename, 'rb')
     reader = csv.reader(f)
     data = np.array(list(reader)).astype('float')
-    day1 = data[:, 0:n]
-    day2 = data[:, n:n*2]
 
     win_avg_errors = []
     var_avg_errors = []
     for cnt in budget_cnts:
-        day1_err = windowInferenceError(day1, means, cnt)
-        day2_err = windowInferenceError(day2, means, cnt)
-        total_err = np.add(day1_err, day2_err)
-        win_avg_err = np.sum(total_err) / total_err.size
+        total_err = windowInferenceError(data, means, cnt)
+        win_avg_err = np.sum(total_err) / (len(total_err) * len(total_err[0]))
         log.info('Window Inference for %.2f budget' % cnt)
         log.debug('error matrix \n' + str(total_err))
         log.add().info('avg error = ' + str(win_avg_err))
         log.sub()
         win_avg_errors.append(win_avg_err)
 
-        day1_err = varianceInferenceError(day1, means, stdevs, cnt)
-        day2_err = varianceInferenceError(day2, means, stdevs, cnt)
-        total_err = np.add(day1_err, day2_err)
-        var_avg_err = np.sum(total_err) / total_err.size
+        total_err = varianceInferenceError(data, means, stdevs, cnt)
+        var_avg_err = np.sum(total_err) / (len(total_err) * len(total_err[0]))
         log.info('Variance Inference for %.2f budget' % cnt)
         log.debug('error matrix \n' + str(total_err))
         log.add().info('avg error = ' + str(var_avg_err))
@@ -149,7 +143,7 @@ def plotAvgError(win, var):
     ax.set_ylabel('Mean Absolute Error')
     ax.set_xlabel('Budget Count')
     ax.set_xticks(index + bar_width)
-    ax.set_xticklabels(('0', '5', '10', '25', '50'))
+    ax.set_xticklabels(('0', '5', '10', '20', '25'))
     ax.legend((rect1[0], rect2[0]), ('Window', 'Variance'))
     plt.savefig('%s_err.eps' % topic, format='eps',
                 bbox_inches='tight')
@@ -175,7 +169,8 @@ if __name__ == '__main__':
              9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5,
              14.0, 14.5, 15.0, 15.5, 16.0, 16.5, 17.0, 17.5, 18.0, 18.5,
              19.0, 19.5, 20.0, 20.5, 21.0, 21.5, 22.0, 22.5, 23.0, 23.5, 0.0]
-    budget_cnts = [0, 5, 10, 25, 50]
+    budget_cnts = [20]
+    budget_cnts = [0, 5, 10, 20, 25]
     log.info('Processing Temperature')
     log.add()
     topic = 'temperature'
