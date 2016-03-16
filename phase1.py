@@ -4,6 +4,7 @@ import csv
 import logging as lg
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
 from python_log_indenter import IndentedLoggerAdapter
 
 
@@ -138,18 +139,21 @@ def inferenceTest(filename, means, stdevs, n=48, m=50):
 
 
 def plotAvgError(win, var):
+    matplotlib.rc('font', size=18)
     index = np.arange(len(budget_cnts))
     bar_width = 0.27
     fig, ax = plt.subplots()
     rect1 = ax.bar(index, win, bar_width, color='b', hatch='/')
     rect2 = ax.bar(index + bar_width, var, bar_width, color='r', hatch='\\')
+    ax.set_xlim([-0.5, 5])
     ax.set_ylabel('Mean Absolute Error')
     ax.set_xlabel('Budget Count')
     ax.set_xticks(index + bar_width)
     ax.set_xticklabels(('0', '5', '10', '25', '50'))
     ax.legend((rect1[0], rect2[0]), ('Window', 'Variance'))
-    plt.savefig('%s_err.eps' % topic, format='eps')
-    plt.show()
+    plt.savefig('%s_err.eps' % topic, format='eps',
+                bbox_inches='tight')
+    # plt.show()
 
 
 def main(train_file, test_file):
@@ -171,7 +175,6 @@ if __name__ == '__main__':
              9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5,
              14.0, 14.5, 15.0, 15.5, 16.0, 16.5, 17.0, 17.5, 18.0, 18.5,
              19.0, 19.5, 20.0, 20.5, 21.0, 21.5, 22.0, 22.5, 23.0, 23.5, 0.0]
-    # budget_cnts = [50]
     budget_cnts = [0, 5, 10, 25, 50]
     log.info('Processing Temperature')
     log.add()
