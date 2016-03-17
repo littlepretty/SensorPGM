@@ -7,9 +7,9 @@ ifeq ($(UNAME_S), Darwin)
 endif
 
 view: project_report
-	$(OPEN) project_report.pdf
+	$(OPEN) report.pdf
 
-project_report: project_report.tex
-	pdflatex --enable-write18 project_report.tex
-	pdflatex --enable-write18 project_report.tex
+project_report: report.tex
+	pdflatex --enable-write18 report.tex
+	pdflatex --enable-write18 report.tex
 	rm *.aux *.log *.out *.toc
