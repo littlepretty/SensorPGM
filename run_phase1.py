@@ -153,6 +153,8 @@ def plotAvgError(win, var):
 def main(train_file, test_file):
     means, stdevs = learnModel(train_file)
     win, var = inferenceTest(test_file, means, stdevs)
+    print win
+    print var
     plotAvgError(win, var)
 
 
