@@ -37,10 +37,10 @@ def plotAvgError(p1_win, p1_var,
     fig, ax = plt.subplots()
     rect1 = ax.bar(index, p1_win, width, color='b', hatch='/')
     rect2 = ax.bar(index + width, p1_var, width, color='r', hatch='\\')
-    rect3 = ax.bar(index + width*2, p2_all_win, width, color='g', hatch='-')
-    rect4 = ax.bar(index + width*3, p2_all_var, width, color='c', hatch='/')
-    rect5 = ax.bar(index + width*4, p2_day_win, width, color='m', hatch='\\')
-    rect6 = ax.bar(index + width*5, p2_day_var, width, color='y', hatch='-')
+    rect3 = ax.bar(index + width*2, p2_all_win, width, color='g', hatch='//')
+    rect4 = ax.bar(index + width*3, p2_all_var, width, color='c', hatch='\\')
+    rect5 = ax.bar(index + width*4, p2_day_win, width, color='m', hatch='x')
+    rect6 = ax.bar(index + width*5, p2_day_var, width, color='y', hatch='//')
     ax.set_xlim([-3, 7 * width * (len(budget_cnts) + 0.1)])
     ax.set_ylim([0, y_max])
     ax.set_ylabel('Mean Absolute Error')
@@ -97,20 +97,25 @@ def learnModelHourStationary(train_data, n=48, m=50):
 
 
 def learnModelDayStationary(train_data, n=48, m=50):
-    """Beta = m * (n-1) * 2, [beta0, beta1] of sensor i"""
-    """Variance = m * (n-1), conditional variance X_j+1|X_j of sensor i"""
+    """Beta = m * n * 2, [beta0, beta1] of sensor i"""
+    """Variance = m * n, conditional variance X_j+1|X_j of sensor i"""
     """InitMean = m length list, initial mean of sensor i"""
     """InitVar = m length list, initial variance of sensor i"""
-    Beta = np.zeros((m, n-1, 2))
-    Variance = np.zeros((m, n-1))
+    Beta = np.zeros((m, n, 2))
+    Variance = np.zeros((m, n))
     InitMean = np.zeros(m)
     InitVar = np.zeros(m)
     for i in range(0, m):
-        for j in range(0, n - 1):
-            X = [train_data[i][j], train_data[i][j + n],
-                 train_data[i][j + 2*n]]
-            y = [train_data[i][j + 1], train_data[i][j + n + 1],
-                 train_data[i][j + 2*n + 1]]
+        for j in range(0, n):
+            if j < n - 1:
+                X = [train_data[i][j], train_data[i][j + n],
+                     train_data[i][j + 2*n]]
+                y = [train_data[i][j + 1], train_data[i][j + n + 1],
+                     train_data[i][j + 2*n + 1]]
+            else:
+                """learn parameter for day to day boundary"""
+                X = [train_data[i][j], train_data[i][j + n]]
+                y = [train_data[i][j + 1], train_data[i][j + n + 1]]
             constX = sm.add_constant(X)
             model = sm.OLS(y, constX)
             results = model.fit()
@@ -159,14 +164,14 @@ def windowInferHourStationary(Beta, InitMean, Test, budget, n=96, m=50):
 
 def windowInferDayStationary(Beta, InitMean, Test, budget, n=96, m=50):
     """Test = m by n, test data"""
-    """Beta = m by (n-1) by 2"""
+    """Beta = m by n by 2"""
     Prediction = np.zeros((m, n))
     Error = np.zeros((m, n))
     day = n / 2
     for j in range(0, n):
         for i in range(0, m):
             """start of days use init mean"""
-            if j % day == 0:
+            if j == 0:
                 Prediction[i, j] = InitMean[i]
             else:
                 t = (j-1) % day
@@ -204,6 +209,8 @@ def varianceInferHourStationary(Beta, Var, InitMean, InitVar,
     MarginalVar = np.zeros((m, n))
     max_indices = []
     for j in range(0, n):
+        log.add().info('%s are previously observed' % str(max_indices))
+        log.sub()
         for i in range(0, m):
             if j == 0:
                 Prediction[i][j] = InitMean[i]
@@ -211,6 +218,7 @@ def varianceInferHourStationary(Beta, Var, InitMean, InitVar,
             else:
                 Prediction[i][j] = Beta[i, 0] + Beta[i, 1] * Prediction[i, j-1]
                 if i in max_indices:
+                    """previously observed sensor has zero variance"""
                     MarginalVar[i][j] = Var[i]
                 else:
                     MarginalVar[i][j] = Var[i] + \
@@ -244,8 +252,10 @@ def varianceInferDayStationary(Beta, Var, InitMean, InitVar,
     day = n / 2
     max_indices = []
     for j in range(0, n):
+        log.add().info('%s are previously observed' % str(max_indices))
+        log.sub()
         for i in range(0, m):
-            if j % day == 0:
+            if j == 0:
                 Prediction[i][j] = InitMean[i]
                 MarginalVar[i][j] = InitVar[i]
             else:
@@ -253,6 +263,7 @@ def varianceInferDayStationary(Beta, Var, InitMean, InitVar,
                 Prediction[i][j] = Beta[i, t, 0] +\
                     Beta[i, t, 1] * Prediction[i, j-1]
                 if i in max_indices:
+                    """previously observed sensor has zero variance"""
                     MarginalVar[i][j] = Var[i, t]
                 else:
                     MarginalVar[i][j] = Var[i, t] + \
@@ -354,7 +365,8 @@ if __name__ == '__main__':
              14.0, 14.5, 15.0, 15.5, 16.0, 16.5, 17.0, 17.5, 18.0, 18.5,
              19.0, 19.5, 20.0, 20.5, 21.0, 21.5, 22.0, 22.5, 23.0, 23.5, 0.0]
     log.info('Processing temperature')
-    budget_cnts = [0, 5, 10, 20, 25]
+    # budget_cnts = [0, 5, 10, 20, 25]
+    budget_cnts = [5]
     topic = 'temperature'
     p2_h_win_err, p2_h_var_err, p2_d_win_err, p2_d_var_err = \
         main('intelTemperatureTrain.csv', 'intelTemperatureTest.csv')
