@@ -186,6 +186,7 @@ def varianceInferHourStationary(Beta, Var, InitMean, InitVar,
     Prediction = np.zeros((m, n))
     Error = np.zeros((m, n))
     MarginalVar = np.zeros((m, n))
+    max_indices = []
     for j in range(0, n):
         for i in range(0, m):
             if j == 0:
@@ -193,8 +194,11 @@ def varianceInferHourStationary(Beta, Var, InitMean, InitVar,
                 MarginalVar[i][j] = InitVar[i]
             else:
                 Prediction[i][j] = Beta[i, 0] + Beta[i, 1] * Prediction[i, j-1]
-                MarginalVar[i][j] = Var[i] + \
-                    (Beta[i][1] ** 2) * MarginalVar[i][j-1]
+                if i in max_indices:
+                    MarginalVar[i][j] = Var[i]
+                else:
+                    MarginalVar[i][j] = Var[i] + \
+                        (Beta[i][1] ** 2) * MarginalVar[i][j-1]
         max_indices = findLargestK(MarginalVar[:, j], budget, m)
         for index in max_indices:
             Prediction[index][j] = Test[index][j]
@@ -214,6 +218,7 @@ def varianceInferDayStationary(Beta, Var, InitMean, InitVar,
     Error = np.zeros((m, n))
     MarginalVar = np.zeros((m, n))
     day = n / 2
+    max_indices = []
     for j in range(0, n):
         for i in range(0, m):
             if j % day == 0:
@@ -223,8 +228,11 @@ def varianceInferDayStationary(Beta, Var, InitMean, InitVar,
                 t = (j-1) % day
                 Prediction[i][j] = Beta[i, t, 0] +\
                     Beta[i, t, 1] * Prediction[i, j-1]
-                MarginalVar[i][j] = Var[i, t] + \
-                    (Beta[i, t, 1] ** 2) * MarginalVar[i, j-1]
+                if i in max_indices:
+                    MarginalVar[i][j] = Var[i, t]
+                else:
+                    MarginalVar[i][j] = Var[i, t] + \
+                        (Beta[i, t, 1] ** 2) * MarginalVar[i, j-1]
         max_indices = findLargestK(MarginalVar[:, j], budget, m)
         for index in max_indices:
             Prediction[index][j] = Test[index][j]
