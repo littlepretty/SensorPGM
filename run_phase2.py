@@ -209,7 +209,7 @@ def varianceInferHourStationary(Beta, Var, InitMean, InitVar,
     MarginalVar = np.zeros((m, n))
     max_indices = []
     for j in range(0, n):
-        log.add().info('%s are previously observed' % str(max_indices))
+        log.add().debug('%s are previously observed' % str(max_indices))
         log.sub()
         for i in range(0, m):
             if j == 0:
@@ -252,7 +252,7 @@ def varianceInferDayStationary(Beta, Var, InitMean, InitVar,
     day = n / 2
     max_indices = []
     for j in range(0, n):
-        log.add().info('%s are previously observed' % str(max_indices))
+        log.add().debug('%s are previously observed' % str(max_indices))
         log.sub()
         for i in range(0, m):
             if j == 0:
@@ -364,9 +364,10 @@ if __name__ == '__main__':
              9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5,
              14.0, 14.5, 15.0, 15.5, 16.0, 16.5, 17.0, 17.5, 18.0, 18.5,
              19.0, 19.5, 20.0, 20.5, 21.0, 21.5, 22.0, 22.5, 23.0, 23.5, 0.0]
+    # budget_cnts = [5]
+    budget_cnts = [0, 5, 10, 20, 25]
+
     log.info('Processing temperature')
-    # budget_cnts = [0, 5, 10, 20, 25]
-    budget_cnts = [5]
     topic = 'temperature'
     p2_h_win_err, p2_h_var_err, p2_d_win_err, p2_d_var_err = \
         main('intelTemperatureTrain.csv', 'intelTemperatureTest.csv')
