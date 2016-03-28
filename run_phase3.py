@@ -70,7 +70,9 @@ def learnModelHourStationary(train_data, n=48, m=50):
     for i in range(0, m):
         InitMean[i] = np.mean(train_data[i, :])
         InitVar[i] = np.var(train_data[i, :])
-
+    log.add().debug('Init mean = %s' % str(InitMean))
+    log.debug('Init variance = %s' % str(InitVar))
+    log.sub()
     return Beta, Variance, InitMean, InitVar
 
 
@@ -90,8 +92,6 @@ def learnModelDayStationary(train_data, n=48, m=50):
                 X = [train_data[:, j], train_data[:, j + n]]
                 y = [train_data[i, j + 1], train_data[i, j + n + 1]]
             constX = sm.add_constant(X)
-            print np.shape(constX)
-            print np.shape(y)
             model = sm.OLS(y, constX)
             results = model.fit()
             Beta[i, j, :] = results.params
@@ -102,6 +102,10 @@ def learnModelDayStationary(train_data, n=48, m=50):
             log.add().debug('Parameter for sensor %d from %d to %d: %s, %.2f' %
                             (i, j, j + 1, str(Beta[i, j, :]), Variance[i][j]))
             log.sub()
+
+    log.add().debug('Init mean = %s' % str(InitMean))
+    log.debug('Init variance = %s' % str(InitVar))
+    log.sub()
 
     return Beta, Variance, InitMean, InitVar
 
@@ -135,7 +139,7 @@ def main(train_file, test_file):
     test_data = np.array(list(reader)).astype('float')
     f.close()
 
-    # h_win_err, h_var_err = hourStationary(train_data, test_data)
+    h_win_err, h_var_err = hourStationary(train_data, test_data)
     d_win_err, d_var_err = dayStationary(train_data, test_data)
 
     return h_win_err, h_var_err, d_win_err, d_var_err
