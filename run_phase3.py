@@ -38,6 +38,25 @@ def plotAvgError(p1_win, p1_var,
                 bbox_inches='tight')
 
 
+def findLargestK(error, budget, m=50):
+    max_indices = []
+    indices = range(0, m)
+    log.debug(str(error))
+    for index in indices:
+        if len(max_indices) == budget:
+            break
+        count = 0
+        for j in range(0, m):
+            if error[index] > error[j]:
+                count += 1
+        if count >= m - budget:
+            max_indices.append(index)
+
+    log.debug('read sensors %s' % str(max_indices))
+    log.debug('#sensors = %d' % len(max_indices))
+    return max_indices
+
+
 def regressionError(beta, input, target):
     Predict = np.dot(beta, np.transpose(input))
     Error = np.subtract(Predict, target)
@@ -76,6 +95,104 @@ def learnModelHourStationary(train_data, n=48, m=50):
     return Beta, Variance, InitMean, InitVar
 
 
+def windowInferHourStationary(Beta, InitMean, Test, budget, n=96, m=50):
+    """Test = m by n, test data"""
+    """Beta = m by (m+1)"""
+    Prediction = np.zeros((m, n))
+    Error = np.zeros((m, n))
+    for j in range(0, n):
+        for i in range(0, m):
+            if j == 0:
+                Prediction[i][j] = InitMean[i]
+            else:
+                X = np.insert(Prediction[:, j-1], 0, 1)
+                Prediction[i, j] = np.dot(Beta[i, :], X)
+        """replace prediction with test data inside window"""
+        window_start = (j * budget) % m
+        window_end = window_start + budget
+        for k in range(window_start, window_end):
+            index = k % m
+            Prediction[index][j] = Test[index][j]
+        print Prediction[:, j]
+        Error[:, j] = np.subtract(Test[:, j], Prediction[:, j])
+        Error[:, j] = np.absolute(Error[:, j])
+    avg_error = np.sum(Error) / (m * n)
+
+    f = open('h-w%d.csv' % budget, 'wb')
+    writer = csv.writer(f)
+    writer.writerow(title)
+    for i in range(0, m):
+        row = np.insert(Prediction[i, :], 0, i)
+        writer.writerow(row)
+
+    return avg_error
+
+
+def varianceInferHourStationary(Beta, Var, InitMean, InitVar,
+                                Test, budget, n=96, m=50):
+    """Test = m * n, test data"""
+    """Beta = m by 2"""
+    """Var = m length list"""
+    """InitMean and InitVar = m length list"""
+    Prediction = np.zeros((m, n))
+    Error = np.zeros((m, n))
+    MarginalVar = np.zeros((m, n))
+    max_indices = []
+    for j in range(0, n):
+        log.add().debug('%s are previously observed' % str(max_indices))
+        log.sub()
+        for i in range(0, m):
+            if j == 0:
+                Prediction[i][j] = InitMean[i]
+                MarginalVar[i][j] = InitVar[i]
+            else:
+                X = np.insert(Prediction[:, j-1], 0, 1)
+                Prediction[i][j] = np.dot(Beta[i, :], X)
+                if i in max_indices:
+                    """previously observed sensor has zero variance"""
+                    MarginalVar[i][j] = Var[i]
+                else:
+                    BetaSquared = np.square(Beta[i, 1:])
+                    MarginalVar[i][j] = Var[i] + \
+                        np.dot(BetaSquared, MarginalVar[:, j-1])
+        max_indices = findLargestK(MarginalVar[:, j], budget, m)
+        for index in max_indices:
+            Prediction[index][j] = Test[index][j]
+        Error[:, j] = np.subtract(Test[:, j], Prediction[:, j])
+        Error[:, j] = np.absolute(Error[:, j])
+    avg_error = np.sum(Error) / (m * n)
+
+    f = open('h-v%d.csv' % budget, 'wb')
+    writer = csv.writer(f)
+    writer.writerow(title)
+    for i in range(0, m):
+        row = np.insert(Prediction[i, :], 0, i)
+        writer.writerow(row)
+
+    return avg_error
+
+
+def hourStationary(train_data, test_data):
+    win_errs = [0] * len(budget_cnts)
+    var_errs = [0] * len(budget_cnts)
+    """log.add().info('Hour stationary assumption')
+    B, V, IM, IV = learnModelHourStationary(train_data)
+    for i in range(0, len(budget_cnts)):
+        win_errs[i] = windowInferHourStationary(B, IM,
+                                                test_data, budget_cnts[i])
+        log.add().info('Avg Window error = %.2f with %d budget' %
+                       (win_errs[i], budget_cnts[i]))
+        log.sub()
+
+        var_errs[i] = varianceInferHourStationary(B, V, IM, IV,
+                                                  test_data, budget_cnts[i])
+        log.add().info('Avg Variance error = %.2f with %d budget' %
+                       (var_errs[i], budget_cnts[i]))
+        log.sub()
+    log.sub()"""
+    return win_errs, var_errs
+
+
 def learnModelDayStationary(train_data, n=48, m=50):
     Beta = np.zeros((m, n, m+1))
     Variance = np.zeros((m, n))
@@ -110,19 +227,106 @@ def learnModelDayStationary(train_data, n=48, m=50):
     return Beta, Variance, InitMean, InitVar
 
 
-def hourStationary(train_data, test_data):
-    win_errs = [0] * len(budget_cnts)
-    var_errs = [0] * len(budget_cnts)
-    B, V, IM, IV = learnModelHourStationary(train_data)
+def windowInferDayStationary(Beta, InitMean, Test, budget, n=96, m=50):
+    """Test = m by n, test data"""
+    """Beta = m by n by 2"""
+    Prediction = np.zeros((m, n))
+    Error = np.zeros((m, n))
+    day = n / 2
+    for j in range(0, n):
+        for i in range(0, m):
+            """start of days use init mean"""
+            if j == 0:
+                Prediction[i, j] = InitMean[i]
+            else:
+                t = (j-1) % day
+                X = np.insert(Prediction[:, t], 0, 1)
+                Prediction[i, j] = np.dot(Beta[i, t, :], X)
+        """replace prediction with test data inside window"""
+        window_start = (j * budget) % m
+        window_end = window_start + budget
+        for k in range(window_start, window_end):
+            index = k % m
+            Prediction[index, j] = Test[index, j]
 
-    return win_errs, var_errs
+        Error[:, j] = np.subtract(Test[:, j], Prediction[:, j])
+        Error[:, j] = np.absolute(Error[:, j])
+    avg_error = np.sum(Error) / (m * n)
+
+    f = open('d-w%d.csv' % budget, 'wb')
+    writer = csv.writer(f)
+    writer.writerow(title)
+    for i in range(0, m):
+        row = np.insert(Prediction[i, :], 0, i)
+        writer.writerow(row)
+
+    return avg_error
+
+
+def varianceInferDayStationary(Beta, Var, InitMean, InitVar,
+                               Test, budget, n=96, m=50):
+    """Test = m * n, test data"""
+    """Beta = m by (n-1) by 2"""
+    """Var = m by (n-1)"""
+    """InitMean and InitVar = m length list"""
+    Prediction = np.zeros((m, n))
+    Error = np.zeros((m, n))
+    MarginalVar = np.zeros((m, n))
+    day = n / 2
+    max_indices = []
+    for j in range(0, n):
+        log.add().debug('%s are previously observed' % str(max_indices))
+        log.sub()
+        for i in range(0, m):
+            if j == 0:
+                Prediction[i][j] = InitMean[i]
+                MarginalVar[i][j] = InitVar[i]
+            else:
+                t = (j-1) % day
+                X = np.insert(Prediction[:, j-1], 0, 1)
+                Prediction[i][j] = np.dot(Beta[i, t, :], X)
+                if i in max_indices:
+                    """previously observed sensor has zero variance"""
+                    MarginalVar[i][j] = Var[i, t]
+                else:
+                    BetaSquared = np.square(Beta[i, t, 1:])
+                    MarginalVar[i][j] = Var[i, t] + \
+                        np.dot(BetaSquared, MarginalVar[:, j-1])
+        max_indices = findLargestK(MarginalVar[:, j], budget, m)
+        for index in max_indices:
+            Prediction[index][j] = Test[index][j]
+        Error[:, j] = np.subtract(Test[:, j], Prediction[:, j])
+        Error[:, j] = np.absolute(Error[:, j])
+    avg_error = np.sum(Error) / (m * n)
+
+    f = open('d-v%d.csv' % budget, 'wb')
+    writer = csv.writer(f)
+    writer.writerow(title)
+    for i in range(0, m):
+        row = np.insert(Prediction[i, :], 0, i)
+        writer.writerow(row)
+
+    return avg_error
 
 
 def dayStationary(train_data, test_data):
     win_errs = [0] * len(budget_cnts)
     var_errs = [0] * len(budget_cnts)
+    log.add().info('Day stationary assumption')
     B, V, IM, IV = learnModelDayStationary(train_data)
+    for i in range(0, len(budget_cnts)):
+        win_errs[i] = windowInferDayStationary(B, IM,
+                                               test_data, budget_cnts[i])
+        log.add().info('Avg Window error = %.2f with %d budget' %
+                       (win_errs[i], budget_cnts[i]))
+        log.sub()
 
+        var_errs[i] = varianceInferDayStationary(B, V, IM, IV,
+                                                 test_data, budget_cnts[i])
+        log.add().info('Avg Variance error = %.2f with %d budget' %
+                       (var_errs[i], budget_cnts[i]))
+        log.sub()
+    log.sub()
     return win_errs, var_errs
 
 
@@ -146,8 +350,8 @@ def main(train_file, test_file):
 
 
 if __name__ == '__main__':
-    lg.basicConfig(level=lg.DEBUG)
-    # lg.basicConfig(level=lg.INFO)
+    # lg.basicConfig(level=lg.DEBUG)
+    lg.basicConfig(level=lg.INFO)
     log = IndentedLoggerAdapter(lg.getLogger(__name__))
     title = ['sensors', 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0,
              5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0,
