@@ -14,4 +14,6 @@ Course Project
 * `logging` and `python_log_indenter` for pretty console message
 * `numpy` for numerical/matrix operations
 * `matplotlib` for figure plotting
+* `statsmodels` for linear regression
+* `python_log_indenter` for indented logging output
 
