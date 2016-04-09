@@ -87,7 +87,7 @@ def learnModelHourStationary(train_data, n=48, m=50):
         results = model.fit()
         Beta[i, :] = results.params
         Variance[i] = regressionError(Beta[i, :], X, y)
-        log.add().debug('Parameter for sensor %d: %s, %2f' %
+        log.add().debug('Parameter for sensor %d: %s, %.4f' %
                         (i, str(Beta[i, :]), Variance[i]))
         log.sub()
 
@@ -190,12 +190,12 @@ def hourStationary(train_data, test_data):
     for i in range(0, len(budget_cnts)):
         win_errors[i] = windowInferHourStationary(B, IM,
                                                   test_data, budget_cnts[i])
-        log.add().info('Avg Window error = %.2f with %d budget' %
+        log.add().info('Avg Window error = %.4f with %d budget' %
                        (win_errors[i], budget_cnts[i]))
         log.sub()
         var_errors[i] = varianceInferHourStationary(B, V, IM, IV,
                                                     test_data, budget_cnts[i])
-        log.add().info('Avg Variance error = %.2f with %d budget' %
+        log.add().info('Avg Variance error = %.4f with %d budget' %
                        (var_errors[i], budget_cnts[i]))
         log.sub()
 
@@ -232,9 +232,12 @@ def learnModelDayStationary(train_data, n=48, m=50):
             if j == 0:
                 InitMean[i] = np.mean(X)
                 InitVar[i] = np.var(X)
+                log.add().debug('Init for sensor %d: %.4f, %.4f'
+                                % (i, InitMean[i], InitVar[i]))
+                log.sub()
 
-            log.add().debug('Parameter for sensor %d from %d to %d: %s, %.2f' %
-                            (i, j, j + 1, str(Beta[i, j, :]), Variance[i][j]))
+            log.add().debug('Parameter for sensor %d from %d to %d: %s, %.4f'
+                            % (i, j, j + 1, str(Beta[i, j, :]), Variance[i][j]))
             log.sub()
 
     return Beta, Variance, InitMean, InitVar
@@ -332,12 +335,12 @@ def dayStationary(train_data, test_data):
     for i in range(0, len(budget_cnts)):
         win_errors[i] = windowInferDayStationary(B, IM,
                                                  test_data, budget_cnts[i])
-        log.add().info('Avg Window error = %.2f with %d budget' %
+        log.add().info('Avg Window error = %.4f with %d budget' %
                        (win_errors[i], budget_cnts[i]))
         log.sub()
         var_errors[i] = varianceInferDayStationary(B, V, IM, IV,
                                                    test_data, budget_cnts[i])
-        log.add().info('Avg Variance error = %.2f with %d budget' %
+        log.add().info('Avg Variance error = %.4f with %d budget' %
                        (var_errors[i], budget_cnts[i]))
         log.sub()
 
