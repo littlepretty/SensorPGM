@@ -76,6 +76,13 @@ Phase 1
 
 % optional page break
 \newpage
+
+\section{Phase 1}
+\begin{align}
+        P(X_i) = N(\mu_i, \sigma_i)
+\end{align}
+
+
 \section{Phase 1 Experiment Results}
 \label{sec:phase1:result}
 
@@ -92,6 +99,27 @@ Phase 1
 \caption{Inference Errors of Humidity Data at Different Budget Level}
 \label{fig:phase1:humidity}
 \end{figure}
+
+\section{Phase 2}
+
+\begin{align}
+        & P(X_{i,j}|X_{i,j-1}) = N(\beta_0 + \beta_1 X_{i,j-1}, var_{X_{i,j}|X_{i,j-1}}) \\
+        & P(X_{i,j}) = P(X_{i, j-1})P(X_{i,j}|X_{i, j-1})
+\end{align}
+
+\subsection{Hour Stationary Model}
+\begin{align}
+        & \mu_{X_{i,j}} = \beta_{i,0} + \beta_{i,1} \mu_{X_{i,j}|X_{i,j-1}} \\
+        & var_{X_{i,j}} = var_{X_{i,j}|X_{i,j-1}} + \beta_{i,1}^2 var_{X_{i,j-1}} 
+\end{align}
+Across-day parameters are considered, e.g.\ from hour 23.5 to 0.0 of the next day.
+
+\subsection{Day Stationary Model}
+\begin{align}
+        & \mu_{X_{i,j}} = \beta_{i,j,0} + \beta_{i,j,1} \mu_{X_{i,j}|X_{i,j-1}} \\
+        & var_{X_{i,j}} = var_{X_{i,j}|X_{i,j-1}} + \beta_{i,j,1}^2 var_{X_{i,j-1}} 
+\end{align}
+Parameters across day are considered, e.g.\ from hour 23.5 to 0.0 of the next day.
 
 
 \section{Phase 2 Experiment Results}
