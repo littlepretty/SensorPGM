@@ -44,7 +44,7 @@ def plotAvgError(p1_win, p1_var,
     index = np.arange(0, index_cnt * width * len(budget_cnts),
                       width * index_cnt)
     for (i, data) in enumerate(data_list):
-        rect = ax.bar(index, data, width * i,
+        rect = ax.bar(index + i * width, data, width,
                       color=colors[i % len(colors)],
                       hatch=hatches[i % len(hatches)])
         rects.append(rect)
@@ -53,9 +53,9 @@ def plotAvgError(p1_win, p1_var,
     ax.set_ylim([0, y_max])
     ax.set_ylabel('Mean Absolute Error')
     ax.set_xlabel('Budget Count')
-    ax.set_xticks(index + width * 2.5)
+    ax.set_xticks(index + width * ((index_cnt) - 1) / 2)
     ax.set_xticklabels(('0', '5', '10', '20', '25'))
-    ax.legend(rects, labels, ncol=3, fontsize=15)
+    ax.legend(rects, labels, ncol=2, fontsize=15)
     plt.grid()
     plt.savefig('%s_err.eps' % topic, format='eps',
                 bbox_inches='tight')
@@ -413,6 +413,10 @@ if __name__ == '__main__':
     p2_h_var = [2.366, 1.519, 0.968, 0.454, 0.325]
     p2_d_win = [1.125, 0.94, 0.556, 0.279, 0.214]
     p2_d_var = [1.125, 0.774, 0.567, 0.295, 0.226]
+    # p3_h_win = [2.366, 1.561, 0.905, 0.412, 0.274]
+    # p3_h_var = [2.366, 1.519, 0.968, 0.454, 0.325]
+    # p3_d_win = [1.125, 0.94, 0.556, 0.279, 0.214]
+    # p3_d_var = [1.125, 0.774, 0.567, 0.295, 0.226]
     plotAvgError(p1_win, p1_var,
                  p2_h_win, p2_h_var, p2_d_win, p2_d_var,
                  p3_h_win, p3_h_var, p3_d_win, p3_d_var)
@@ -427,6 +431,10 @@ if __name__ == '__main__':
     p2_h_var = [5.365, 2.964, 1.752, 0.786, 0.573]
     p2_d_win = [3.872, 2.327, 1.282, 0.718, 0.515]
     p2_d_var = [3.872, 2.123, 1.476, 0.744, 0.572]
+    # p3_h_win = [5.365, 2.701, 1.524, 0.689, 0.452]
+    # p3_h_var = [5.365, 2.964, 1.752, 0.786, 0.573]
+    # p3_d_win = [3.872, 2.327, 1.282, 0.718, 0.515]
+    # p3_d_var = [3.872, 2.123, 1.476, 0.744, 0.572]
     plotAvgError(p1_win, p1_var,
                  p2_h_win, p2_h_var, p2_d_win, p2_d_var,
                  p3_h_win, p3_h_var, p3_d_win, p3_d_var)
