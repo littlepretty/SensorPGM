@@ -78,10 +78,12 @@ Phase 1
 \newpage
 
 \section{Phase 1}
+Every sensor's data at every timestamp is an isolated random variable.
+Besides, they are represented as a Gaussian model:
 \begin{align}
-        P(X_i) = N(\mu_i, \sigma_i)
+        P(X_{i,j}) = N(\mu_{i,j}, \sigma_{i,j}^2)
 \end{align}
-
+where $X_{i, j}$ is the random variable for sensor $i$'s data at time $j$.
 
 \section{Phase 1 Experiment Results}
 \label{sec:phase1:result}
@@ -89,37 +91,47 @@ Phase 1
 \begin{figure}[h]
 \centering
         \includegraphics[width=0.58\textwidth]{../phase1/temperature_err}
-\caption{Inference Errors of Temperature Data at Different Budget Level}
+        \caption{Inference Errors of \textbf{Temperature} Data at Different Budget Level}
 \label{fig:phase1:temperature}
 \end{figure}
 
 \begin{figure}[h]
 \centering
         \includegraphics[width=0.58\textwidth]{../phase1/humidity_err}
-\caption{Inference Errors of Humidity Data at Different Budget Level}
+        \caption{Inference Errors of \textbf{Humidity} Data at Different Budget Level}
 \label{fig:phase1:humidity}
 \end{figure}
 
 \section{Phase 2}
-
+For sensor $i$, the network model is a linear chain.
+States are first-order Markovian.
 \begin{align}
         & P(X_{i,j}|X_{i,j-1}) = N(\beta_0 + \beta_1 X_{i,j-1}, var_{X_{i,j}|X_{i,j-1}}) \\
         & P(X_{i,j}) = P(X_{i, j-1})P(X_{i,j}|X_{i, j-1})
 \end{align}
 
 \subsection{Hour Stationary Model}
+If we assume hour stationary, the transition parameters are the same per sensor.
+These parameters are learned by regression using all 3 day's data per sensor.
 \begin{align}
         & \mu_{X_{i,j}} = \beta_{i,0} + \beta_{i,1} \mu_{X_{i,j}|X_{i,j-1}} \\
         & var_{X_{i,j}} = var_{X_{i,j}|X_{i,j-1}} + \beta_{i,1}^2 var_{X_{i,j-1}} 
 \end{align}
-Across-day parameters are considered, e.g.\ from hour 23.5 to 0.0 of the next day.
+
 
 \subsection{Day Stationary Model}
+If we assume day stationary, the transition parameters are different inside one day,
+but the same for timestamps across day.
+For each transition parameters, 3 rows of data are used in regression.
 \begin{align}
         & \mu_{X_{i,j}} = \beta_{i,j,0} + \beta_{i,j,1} \mu_{X_{i,j}|X_{i,j-1}} \\
         & var_{X_{i,j}} = var_{X_{i,j}|X_{i,j-1}} + \beta_{i,j,1}^2 var_{X_{i,j-1}} 
 \end{align}
-Parameters across day are considered, e.g.\ from hour 23.5 to 0.0 of the next day.
+Transition parameters from one day to the next day are considered,
+e.g.\ from hour 23.5 to 0.0 of the next day.
+When learning these parameters, only 2 rows of train data are used in regression.
+They are data from 1st day's 23.5 to 2nd day's 0.0,
+and data from 2nd day's 23.5 to 3rd day's 0.0.
 
 
 \section{Phase 2 Experiment Results}
@@ -128,14 +140,14 @@ Parameters across day are considered, e.g.\ from hour 23.5 to 0.0 of the next da
 \begin{figure}[h]
 \centering
         \includegraphics[width=0.58\textwidth]{../phase2/temperature_err}
-\caption{Inference Errors of Temperature Data at Different Budget Level}
+        \caption{Inference Errors of \textbf{Temperature} Data at Different Budget Level}
 \label{fig:phase1:temperature}
 \end{figure}
 
 \begin{figure}[h]
 \centering
         \includegraphics[width=0.58\textwidth]{../phase2/humidity_err}
-\caption{Inference Errors of Humidity Data at Different Budget Level}
+        \caption{Inference Errors of \textbf{Humidity} Data at Different Budget Level}
 \label{fig:phase1:humidity}
 \end{figure}
 
