@@ -384,7 +384,7 @@ if __name__ == '__main__':
     p1_var = [1.167, 0.967, 0.810, 0.560, 0.435]
     plotAvgError(p1_win, p1_var,
                  p2_h_win, p2_h_var,
-                 p2_d_win, p2_d_var, y_max=4)
+                 p2_d_win, p2_d_var, y_max=3.5)
     log.info(str(p2_h_win))
     log.info(str(p2_h_var))
     log.info(str(p2_d_win))
