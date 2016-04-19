@@ -192,6 +192,7 @@ def varianceInferHourStationary(Beta, CondVar, InitMean, InitVar,
         max_indices = findLargestK(MarginalVar[:, j], budget, m)
         for index in max_indices:
             Prediction[index][j] = Test[index][j]
+            MarginalVar[index][j] = 0
 
         log.add().debug('Window preciton at %d = %s'
                         % (j, Prediction[:, j]))
@@ -340,6 +341,7 @@ def varianceInferDayStationary(Beta, CondVar, InitMean, InitVar,
         max_indices = findLargestK(MarginalVar[:, j], budget, m)
         for index in max_indices:
             Prediction[index][j] = Test[index][j]
+            MarginalVar[index][j] = 0
         Error[:, j] = np.subtract(Test[:, j], Prediction[:, j])
         Error[:, j] = np.absolute(Error[:, j])
 
@@ -413,11 +415,7 @@ if __name__ == '__main__':
     p2_h_var = [2.366, 1.519, 0.968, 0.454, 0.325]
     p2_d_win = [1.125, 0.94, 0.556, 0.279, 0.214]
     p2_d_var = [1.125, 0.774, 0.567, 0.295, 0.226]
-    # p3_h_win = [2.366, 1.561, 0.905, 0.412, 0.274]
-    # p3_h_var = [2.366, 1.519, 0.968, 0.454, 0.325]
-    # p3_d_win = [1.125, 0.94, 0.556, 0.279, 0.214]
-    # p3_d_var = [1.125, 0.774, 0.567, 0.295, 0.226]
-    plotAvgError(p1_win, p1_var,
+    """plotAvgError(p1_win, p1_var,
                  p2_h_win, p2_h_var, p2_d_win, p2_d_var,
                  p3_h_win, p3_h_var, p3_d_win, p3_d_var)
 
@@ -431,10 +429,6 @@ if __name__ == '__main__':
     p2_h_var = [5.365, 2.964, 1.752, 0.786, 0.573]
     p2_d_win = [3.872, 2.327, 1.282, 0.718, 0.515]
     p2_d_var = [3.872, 2.123, 1.476, 0.744, 0.572]
-    # p3_h_win = [5.365, 2.701, 1.524, 0.689, 0.452]
-    # p3_h_var = [5.365, 2.964, 1.752, 0.786, 0.573]
-    # p3_d_win = [3.872, 2.327, 1.282, 0.718, 0.515]
-    # p3_d_var = [3.872, 2.123, 1.476, 0.744, 0.572]
     plotAvgError(p1_win, p1_var,
                  p2_h_win, p2_h_var, p2_d_win, p2_d_var,
-                 p3_h_win, p3_h_var, p3_d_win, p3_d_var)
+                 p3_h_win, p3_h_var, p3_d_win, p3_d_var)"""

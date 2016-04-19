@@ -164,6 +164,7 @@ def varianceInferHourStationary(Beta, CondVar, InitMean, InitVar,
         max_indices = findLargestK(MarginalVar[:, j], budget, m)
         for index in max_indices:
             Prediction[index][j] = Test[index][j]
+            MarginalVar[index][j] = 0
 
         Error[:, j] = np.subtract(Test[:, j], Prediction[:, j])
         Error[:, j] = np.absolute(Error[:, j])
@@ -310,7 +311,8 @@ def varianceInferDayStationary(Beta, CondVar, InitMean, InitVar,
                         (Beta[i, t, 1] ** 2) * MarginalVar[i, j-1]
         max_indices = findLargestK(MarginalVar[:, j], budget, m)
         for index in max_indices:
-            Prediction[index][j] = Test[index][j]
+            Prediction[index, j] = Test[index, j]
+            MarginalVar[index, j] = 0
         Error[:, j] = np.subtract(Test[:, j], Prediction[:, j])
         Error[:, j] = np.absolute(Error[:, j])
     avg_error = np.sum(Error) / (m * n)
