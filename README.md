@@ -16,4 +16,5 @@ Course Project
 * `matplotlib` for figure plotting
 * `statsmodels` for linear regression
 * `python_log_indenter` for indented logging output
+* `sklearn` for Lasso regression
 
