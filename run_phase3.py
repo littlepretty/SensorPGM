@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import matplotlib
 from sklearn import linear_model
 from python_log_indenter import IndentedLoggerAdapter
-import statsmodels.api as sm
 
 
 def readInData(filename):
@@ -36,7 +35,7 @@ def plotAvgError(p1_win, p1_var,
     labels = ('Phase 1 Window', 'Phase 1 Variance',
               'Phase 2 H-Window', 'Phase 2 H-Variance',
               'Phase 2 D-Window', 'Phase 2 D-Variance',
-              'Phase 3 H-Window', 'Phase 3 H-Variance')  # 'Phase 3 D-Window', 'Phase 3 D-Variance'
+              'Phase 3 H-Window', 'Phase 3 H-Variance')
     hatches = ['/', '\\', '//', 'x', '+']
     colors = ['b', 'r', 'g', 'c', 'm', 'y']
     rects = []
@@ -96,6 +95,18 @@ def regressionErrorLasso(model, input, target):
     return np.var(Error)
 
 
+def findRelevantVariables(Beta, n=48, m=50):
+    RelevantVar = [[] for x in range(0, m)]
+    for sensor in range(0, m):
+        for (i, beta) in enumerate(Beta[sensor, 1:]):
+            if abs(beta) > 0.0001:
+                RelevantVar[sensor].append(i)
+        log.add().debug('Relevant variables for sensor %d: %s' %
+                        (sensor, RelevantVar[sensor]))
+        log.sub()
+    return RelevantVar
+
+
 def learnModelHourStationary(train_data, n=48, m=50):
     """Beta = m * (m+1) matrix,
     Beta[i] = [beta_0, beta_1,...,beta_m] for sensor i]
@@ -116,6 +127,7 @@ def learnModelHourStationary(train_data, n=48, m=50):
                         (i, str(Beta[i, :]), Variance[i]))
         log.sub()
 
+    findRelevantVariables(Beta, n, m)
     """InitMean = m length list, initial mean"""
     """InitVar = m length list, initial variance"""
     InitMean = np.zeros(m)
@@ -232,151 +244,6 @@ def hourStationary(train_data, test_data):
         log.sub()
         var_errs[i] = varianceInferHourStationary(B, V, IM, IV,
                                                   test_data, budget_cnts[i])
-        log.add().info('Avg Variance error = %.2f with %d budget' %
-                       (var_errs[i], budget_cnts[i]))
-        log.sub()
-    log.sub()
-    return win_errs, var_errs
-
-
-def learnModelDayStationary(train_data, n=48, m=50):
-    Beta = np.zeros((m, n, m+1))
-    Variance = np.zeros((m, n))
-    InitMean = np.zeros(m)
-    InitVar = np.zeros(m)
-    for i in range(0, m):
-        for j in range(0, n):
-            if j < n - 1:
-                """only 3 rows of regression data"""
-                X = [train_data[:, j], train_data[:, j + n],
-                     train_data[:, j + 2 * n]]
-                y = [train_data[i, j + 1], train_data[i, j + n + 1],
-                     train_data[i, j + 2 * n + 1]]
-            else:
-                X = [train_data[:, j], train_data[:, j + n]]
-                y = [train_data[i, j + 1], train_data[i, j + n + 1]]
-
-            constX = sm.add_constant(X)
-            model = sm.OLS(y, constX)
-            results = model.fit()
-            Beta[i, j, :] = results.params
-            Variance[i][j] = regressionError(Beta[i, j, :], constX, y)
-            if j == 0:
-                InitMean[i] = np.mean(X)
-                InitVar[i] = np.var(X)
-
-            log.add().debug('Parameter for sensor %d from %d to %d: %s, %.2f' %
-                            (i, j, j + 1, str(Beta[i, j, :]), Variance[i][j]))
-            log.sub()
-
-    log.add().debug('Init mean = %s' % str(InitMean))
-    log.debug('Init variance = %s' % str(InitVar))
-    log.sub()
-    return Beta, Variance, InitMean, InitVar
-
-
-def windowInferDayStationary(Beta, InitMean, Test, budget, n=96, m=50):
-    """Test = m by n, test data
-    Beta = m by n/2 by 2 matrix
-    InitMean = [m] list
-    """
-    Prediction = np.zeros((m, n))
-    Error = np.zeros((m, n))
-    day = n / 2
-    for j in range(0, n):
-        for i in range(0, m):
-            """start of days use init mean"""
-            if j == 0:
-                Prediction[i, j] = InitMean[i]
-            else:
-                t = (j-1) % day
-                X = np.insert(Prediction[:, t], 0, 1)
-                Prediction[i, j] = np.dot(Beta[i, t, :], X)
-
-        """replace prediction with test data inside window"""
-        window_start = (j * budget) % m
-        window_end = window_start + budget
-        for k in range(window_start, window_end):
-            index = k % m
-            Prediction[index, j] = Test[index, j]
-
-        Error[:, j] = np.subtract(Test[:, j], Prediction[:, j])
-        Error[:, j] = np.absolute(Error[:, j])
-
-    avg_error = np.sum(Error) / (m * n)
-
-    f = open('d-w%d.csv' % budget, 'wb')
-    writer = csv.writer(f)
-    writer.writerow(title)
-    for i in range(0, m):
-        row = np.insert(Prediction[i, :], 0, i)
-        writer.writerow(row)
-
-    return avg_error
-
-
-def varianceInferDayStationary(Beta, CondVar, InitMean, InitVar,
-                               Test, budget, n=96, m=50):
-    """Test = m * n, test data matrix
-    Beta = m by n/2 by (m+1) matrix
-    CondVar = m by n/2 matrix
-    InitMean and InitVar = m length list"""
-    Prediction = np.zeros((m, n))
-    Error = np.zeros((m, n))
-    MarginalVar = np.zeros((m, n))
-    day = n / 2
-    max_indices = []
-    for j in range(0, n):
-        log.add().debug('%s are previously observed' % str(max_indices))
-        log.sub()
-        for i in range(0, m):
-            if j == 0:
-                Prediction[i][j] = InitMean[i]
-                MarginalVar[i][j] = InitVar[i]
-            else:
-                t = (j-1) % day
-                X = np.insert(Prediction[:, j-1], 0, 1)
-                Prediction[i][j] = np.dot(Beta[i, t, :], X)
-                if i in max_indices:
-                    """previously observed sensor has zero variance"""
-                    MarginalVar[i][j] = CondVar[i, t]
-                else:
-                    BetaSquared = np.square(Beta[i, t, 1:])
-                    MarginalVar[i][j] = CondVar[i, t] + \
-                        np.dot(BetaSquared, MarginalVar[:, j-1])
-
-        max_indices = findLargestK(MarginalVar[:, j], budget, m)
-        for index in max_indices:
-            Prediction[index][j] = Test[index][j]
-            MarginalVar[index][j] = 0
-        Error[:, j] = np.subtract(Test[:, j], Prediction[:, j])
-        Error[:, j] = np.absolute(Error[:, j])
-
-    avg_error = np.sum(Error) / (m * n)
-
-    f = open('d-v%d.csv' % budget, 'wb')
-    writer = csv.writer(f)
-    writer.writerow(title)
-    for i in range(0, m):
-        row = np.insert(Prediction[i, :], 0, i)
-        writer.writerow(row)
-
-    return avg_error
-
-
-def dayStationary(train_data, test_data):
-    win_errs = [0] * len(budget_cnts)
-    var_errs = [0] * len(budget_cnts)
-    log.add().info('Day stationary assumption')
-    B, V, IM, IV = learnModelDayStationary(train_data)
-    for i in range(0, len(budget_cnts)):
-        win_errs[i] = windowInferDayStationary(B, IM,
-                                               test_data, budget_cnts[i])
-        log.add().info('Avg Window error = %.2f with %d budget' %
-                       (win_errs[i], budget_cnts[i]))
-        log.sub()
-        var_errs[i] = varianceInferDayStationary(B, V, IM, IV,
-                                                 test_data, budget_cnts[i])
         log.add().info('Avg Variance error = %.2f with %d budget' %
                        (var_errs[i], budget_cnts[i]))
         log.sub()

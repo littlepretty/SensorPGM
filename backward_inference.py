@@ -193,7 +193,7 @@ def varianceInferHourStationary(Beta, CondVar, InitMean, InitVar,
     MarginalVar = np.zeros((m, n))
     max_indices = []
     for j in range(0, n):
-        log.add().debug('%s are previously observed' % str(max_indices))
+        log.add().info('%s are previously observed' % str(max_indices))
         log.sub()
         if j == 0:
             Prediction[:, j] = InitMean
@@ -203,16 +203,14 @@ def varianceInferHourStationary(Beta, CondVar, InitMean, InitVar,
                 Prediction[index][j] = Test[index][j]
                 MarginalVar[index][j] = 0
         else:
-            # calculate prediction variance to determine observations
-            for i in range(0, m):
-                BetaSquared = np.square(Beta[i, :])
-                MarginalVar[i][j] = CondVar[i] + \
-                    np.dot(BetaSquared, MarginalVar[:, j-1])
-
-            max_indices = findLargestK(MarginalVar[:, j], budget)
+            """
+            observed sensor is in max_indices,
+            who has large prediction variance in the last  prediction
+            """
             Prediction[:, j], MarginalVar[:, j] = \
                 backwardInference(max_indices, CondVar, Beta, Test[:, j],
                                   Prediction[:, j-1], MarginalVar[:, j-1])
+            max_indices = findLargestK(MarginalVar[:, j], budget)
 
         log.add().debug('Variance prediction at %d = %s'
                         % (j, Prediction[:, j]))
@@ -251,13 +249,12 @@ def backwardInference(ob_indices, CondVar, Beta, Test,
     O = np.zeros(o)
     H = np.zeros((o, m))
     R = np.zeros((o, o))
-
-    # update last time prediction first
     for (i, index) in enumerate(ob_indices):
         H[i, :] = Beta[index, :]
         R[i, i] = CondVar[index]
         O[i] = Test[index]
 
+    # update last time prediction first
     HT = np.transpose(H)
     K = np.dot(LastMarginalVar, HT)
     HSHT = np.dot(np.dot(H, LastMarginalVar), HT)
@@ -323,13 +320,13 @@ if __name__ == '__main__':
              9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5,
              14.0, 14.5, 15.0, 15.5, 16.0, 16.5, 17.0, 17.5, 18.0, 18.5,
              19.0, 19.5, 20.0, 20.5, 21.0, 21.5, 22.0, 22.5, 23.0, 23.5, 0.0]
-    # budget_cnts = [5]
-    budget_cnts = [0, 5, 10, 20, 25]
+    budget_cnts = [5]
+    # budget_cnts = [0, 5, 10, 20, 25]
 
     log.info('Processing temperature')
     topic = 'temperature'
     p3_h_win, p3_h_var = \
-        main('intelTemperatureTrain.csv', 'intelTemperatureTest.csv', 0.18)
+        main('intelTemperatureTrain.csv', 'intelTemperatureTest.csv', 0.09)
     p1_win = [1.167, 1.049, 0.938, 0.692, 0.597]
     p1_var = [1.167, 0.967, 0.810, 0.560, 0.435]
     p2_h_win = [2.366, 1.561, 0.905, 0.412, 0.274]
