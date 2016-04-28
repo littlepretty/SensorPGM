@@ -93,6 +93,15 @@ def regressionErrorLasso(model, input, target):
     return np.var(Error)
 
 
+def regressionErrorLasso2(beta, X, target, m=50):
+    constX = np.zeros((len(X), len(X[0]) + 1))
+    for (i, x) in enumerate(X):
+        constX[i, :] = np.insert(x, 0, 1)
+    Predict = np.dot(beta, np.transpose(constX))
+    Error = Predict - target
+    return np.var(Error)
+
+
 def findRelevantVariables(Beta, n=48, m=50):
     RelevantVar = [[] for x in range(0, m)]
     for sensor in range(0, m):
@@ -140,33 +149,36 @@ def learnModelHourStationary(train_data, alpha, n=48, m=50):
     return Beta, Variance, InitMean, InitVar
 
 
-def windowInferHourStationary(Beta, InitMean, Test, budget, n=96, m=50):
+def windowInferHourStationary(Beta, CondVar, InitMean, InitVar,
+                              Test, budget, n=96, m=50):
     """Test = m by n, test data"""
     """Beta = m by (m+1)"""
     Prediction = np.zeros((m, n))
     Error = np.zeros((m, n))
     MarginalVar = np.zeros((m, n))
     for j in range(0, n):
-        for i in range(0, m):
-            if j == 0:
-                Prediction[i][j] = InitMean[i]
-            else:
-                X = np.insert(Prediction[:, j-1], 0, 1)
-                Prediction[i, j] = np.dot(Beta[i, :], X)
+        if j == 0:
+            Prediction[:, j] = InitMean
+            MarginalVar[:, j] = InitVar
+        else:
+            """replace prediction with test data inside window"""
+            window_start = (j * budget) % m
+            window_end = window_start + budget
+            window_indices = []
+            for k in range(window_start, window_end):
+                index = k % m
+                window_indices.append(index)
 
-        """replace prediction with test data inside window"""
-        window_start = (j * budget) % m
-        window_end = window_start + budget
-        for k in range(window_start, window_end):
-            index = k % m
-            Prediction[index, j] = Test[index, j]
+            Prediction[:, j], MarginalVar[:, j] = \
+                backwardInference(window_indices, CondVar, Beta, Test[:, j],
+                                  Prediction[:, j-1], MarginalVar[:, j-1])
 
         log.add().debug('Window prediction at %d = %s'
                         % (j, Prediction[:, j]))
         log.sub()
-
-        Error[:, j] = np.subtract(Test[:, j], Prediction[:, j])
+        Error[:, j] = Test[:, j] - Prediction[:, j]
         Error[:, j] = np.absolute(Error[:, j])
+
     avg_error = np.sum(Error) / (m * n)
 
     f = open('h-w%d.csv' % budget, 'wb')
@@ -213,7 +225,7 @@ def varianceInferHourStationary(Beta, CondVar, InitMean, InitVar,
         log.add().debug('Variance prediction at %d = %s'
                         % (j, Prediction[:, j]))
         log.sub()
-        Error[:, j] = np.subtract(Test[:, j], Prediction[:, j])
+        Error[:, j] = Test[:, j] - Prediction[:, j]
         Error[:, j] = np.absolute(Error[:, j])
 
     avg_error = np.sum(Error) / (m * n)
@@ -229,7 +241,7 @@ def varianceInferHourStationary(Beta, CondVar, InitMean, InitVar,
 
 
 def backwardInference(ob_indices, CondVar, Beta, Test,
-                      LastPredict, LastMarginalVar, n=48, m=50):
+                      LastPredict, LastMarginalVar, m=50):
     """
     ob_indices: indices of observed variables
     CondVar: m * 1
@@ -282,11 +294,11 @@ def hourStationary(train_data, test_data, alpha):
     log.add().info('Hour stationary assumption')
     B, V, IM, IV = learnModelHourStationary(train_data, alpha)
     for i in range(0, len(budget_cnts)):
-        """win_errs[i] = windowInferHourStationary(B, IM,
+        win_errs[i] = windowInferHourStationary(B, V, IM, IV,
                                                 test_data, budget_cnts[i])
-        log.add().info('Avg Window error = %.2f with %d budget' %
+        log.add().info('Avg Window error = %.6f with %d budget' %
                        (win_errs[i], budget_cnts[i]))
-        log.sub()"""
+        log.sub()
         var_errs[i] = varianceInferHourStationary(B, V, IM, IV,
                                                   test_data, budget_cnts[i])
         log.add().info('Avg Variance error = %.6f with %d budget' %
@@ -326,7 +338,7 @@ if __name__ == '__main__':
     log.info('Processing temperature')
     topic = 'temperature'
     p3_h_win, p3_h_var = \
-        main('intelTemperatureTrain.csv', 'intelTemperatureTest.csv')
+        main('intelTemperatureTrain.csv', 'intelTemperatureTest.csv', 0.18)
     p1_win = [1.167, 1.049, 0.938, 0.692, 0.597]
     p1_var = [1.167, 0.967, 0.810, 0.560, 0.435]
     p2_h_win = [2.366, 1.561, 0.905, 0.412, 0.274]
