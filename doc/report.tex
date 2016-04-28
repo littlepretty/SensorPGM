@@ -152,6 +152,25 @@ and data from 2nd day's 23.5 to 3rd day's 0.0.
 \end{figure}
 
 
+\section{Phase 3 without Backward Inference}
+In phase 3, we assume hour-level stationary.
+The Markovian temporal model for sensor $i$ is
+\begin{align}
+        P(\mathbf{X}^t | \mathbf{X}^{t-1}) = \mathcal{N}(\mathit{A} \mathbf{X}^{t-1}; Q)
+\end{align}
+where $\mathbf{X}$ is a $50 \times 1$ vector, representing 50 sensors.
+The parameters needed to be learned are
+\begin{itemize}
+\item $\mathit{A}$: a 50 $\times$ 50 matrix describing the temporal transition relation
+\item $\mathit{Q}$: a 50 $\times$ 50 diagonal matrix describing the conditional variance
+\end{itemize}
+Without considering observed data could influence backward,
+the inference is the same as phase 2.
+
+\section{Phase 3 with Backward Inference}
+
+
+
 %\begin{figure}[h]
 %\centering
         %\includegraphics[width=0.8\textwidth, height=0.8\textheight]{progress.ps}

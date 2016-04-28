@@ -78,30 +78,6 @@ def findLargestK(error, k, m=50):
     return max_indices
 
 
-def regressionError(beta, input, target):
-    """beta = [m+1] vector
-    input =  m + 1
-    """
-    Predict = np.dot(beta, np.transpose(input))
-    Error = np.subtract(Predict, target)
-    return np.var(Error)
-
-
-def regressionErrorLasso(model, input, target):
-    Predict = model.predict(input)
-    Error = np.subtract(Predict, target)
-    return np.var(Error)
-
-
-def regressionErrorLasso2(beta, X, target, m=50):
-    constX = np.zeros((len(X), len(X[0]) + 1))
-    for (i, x) in enumerate(X):
-        constX[i, :] = np.insert(x, 0, 1)
-    Predict = np.dot(beta, np.transpose(constX))
-    Error = Predict - target
-    return np.var(Error)
-
-
 def findRelevantVariables(Beta, n=48, m=50):
     RelevantVar = [[] for x in range(0, m)]
     for sensor in range(0, m):
@@ -114,31 +90,44 @@ def findRelevantVariables(Beta, n=48, m=50):
     return RelevantVar
 
 
+def regressionErrorLasso(model, input, target):
+    Predict = model.predict(input)
+    Error = np.subtract(Predict, target)
+    return np.var(Error)
+
+
 def learnModelHourStationary(train_data, alpha, n=48, m=50):
-    """Beta = m * (m+1) matrix,
-    Beta[i] = [beta_0, beta_1,...,beta_m] for sensor i]
-    Variance = [m] list, variance of X[i,j+1]|X[1,j], X[2,j],...,X[m,j]"""
-    Beta = np.zeros((m, m+1))
+    """
+    Beta = m * m matrix,
+    Beta[i] = [beta, beta_1,...,beta_m] for sensor i]
+    Variance = [m] list, conditional variance of X[i,j+1] given
+        X[1,j], X[2,j],...,X[m,j]
+    InitMean = m length list, initial mean
+    InitVar = m length list, cond variance e.g. regression error
+    """
+    Beta = np.zeros((m, m))
     Variance = np.zeros(m)
+    InitMean = np.zeros(m)
+    InitVar = np.zeros(m)
     three_day = n * 3
+    log.add().info("Lasso regression with alpha = %.3f" % alpha)
+    log.sub()
     for i in range(0, m):
         X = [train_data[:, j] for j in range(0, three_day-1)]
         y = train_data[i][1:]
-        model = linear_model.Lasso(alpha=alpha, fit_intercept=True,
+        """no intercept in the model"""
+        model = linear_model.Lasso(alpha=alpha, fit_intercept=False,
                                    copy_X=True, max_iter=10000)
         model.fit(X, y)
-        Beta[i, 0] = model.intercept_
-        Beta[i, 1:] = model.coef_
+        # Beta[i, 0] = model.intercept_
+        Beta[i, :] = model.coef_
         Variance[i] = regressionErrorLasso(model, X, y)
         log.add().debug('Parameter for sensor %d: %s, %.2f' %
                         (i, str(Beta[i, :]), Variance[i]))
         log.sub()
 
+    """just use this function to see how many zeros in Beta"""
     findRelevantVariables(Beta, n, m)
-    """InitMean = m length list, initial mean"""
-    """InitVar = m length list, initial variance"""
-    InitMean = np.zeros(m)
-    InitVar = np.zeros(m)
     for i in range(0, m):
         InitMean[i] = np.mean(train_data[i, :])
         InitVar[i] = np.var(train_data[i, :])
@@ -152,7 +141,7 @@ def learnModelHourStationary(train_data, alpha, n=48, m=50):
 def windowInferHourStationary(Beta, CondVar, InitMean, InitVar,
                               Test, budget, n=96, m=50):
     """Test = m by n, test data"""
-    """Beta = m by (m+1)"""
+    """Beta = m by m"""
     Prediction = np.zeros((m, n))
     Error = np.zeros((m, n))
     MarginalVar = np.zeros((m, n))
@@ -168,7 +157,7 @@ def windowInferHourStationary(Beta, CondVar, InitMean, InitVar,
             for k in range(window_start, window_end):
                 index = k % m
                 window_indices.append(index)
-
+            # predict unobserved data with backward inference
             Prediction[:, j], MarginalVar[:, j] = \
                 backwardInference(window_indices, CondVar, Beta, Test[:, j],
                                   Prediction[:, j-1], MarginalVar[:, j-1])
@@ -193,10 +182,12 @@ def windowInferHourStationary(Beta, CondVar, InitMean, InitVar,
 
 def varianceInferHourStationary(Beta, CondVar, InitMean, InitVar,
                                 Test, budget, n=96, m=50):
-    """Test = m * n, test data"""
-    """Beta = m by (m+1)"""
-    """CondVar = m length list"""
-    """InitMean and InitVar = m length list"""
+    """
+    Test = m * n, test data
+    Beta = m by (m+1)
+    CondVar = m length list
+    InitMean and InitVar = m length list
+    """
     Prediction = np.zeros((m, n))
     Error = np.zeros((m, n))
     MarginalVar = np.zeros((m, n))
@@ -212,8 +203,9 @@ def varianceInferHourStationary(Beta, CondVar, InitMean, InitVar,
                 Prediction[index][j] = Test[index][j]
                 MarginalVar[index][j] = 0
         else:
+            # calculate prediction variance to determine observations
             for i in range(0, m):
-                BetaSquared = np.square(Beta[i, 1:])
+                BetaSquared = np.square(Beta[i, :])
                 MarginalVar[i][j] = CondVar[i] + \
                     np.dot(BetaSquared, MarginalVar[:, j-1])
 
@@ -244,11 +236,11 @@ def backwardInference(ob_indices, CondVar, Beta, Test,
                       LastPredict, LastMarginalVar, m=50):
     """
     ob_indices: indices of observed variables
-    CondVar: m * 1
-    Beta: m * (m+1)
-    Observed: Test data used as observation
-    LastPredict: m * 1, u_t
-    LastMarginalVar: m * m, sigma_t
+    CondVar: m * 1 list, cond variance of ALL variables
+    Beta: m * m transition model
+    Observed: ALL test data used as observation
+    LastPredict: m * 1, u_t, update it using Kalman Gain equation
+    LastMarginalVar: m * m, sigma_t, update is using Kalman Gain equation
     Prediction: m * 1, prediction based on its parents and observations
     """
     LastMarginalVar = np.diag(LastMarginalVar)
@@ -262,7 +254,7 @@ def backwardInference(ob_indices, CondVar, Beta, Test,
 
     # update last time prediction first
     for (i, index) in enumerate(ob_indices):
-        H[i, :] = Beta[index, 1:]
+        H[i, :] = Beta[index, :]
         R[i, i] = CondVar[index]
         O[i] = Test[index]
 
@@ -276,9 +268,8 @@ def backwardInference(ob_indices, CondVar, Beta, Test,
     # use them to predict unobserved value
     for i in range(0, m):
         if i not in ob_indices:
-            X = np.insert(LastPredict, 0, 1)
-            Prediction[i] = np.dot(Beta[i, :], X)
-            BetaSquared = np.square(Beta[i, 1:])
+            Prediction[i] = np.dot(Beta[i, :], LastPredict)
+            BetaSquared = np.square(Beta[i, :])
             LMV = [LastMarginalVar[k, k] for k in range(0, m)]
             MarginalVar[i] = CondVar[i] + np.dot(BetaSquared, LMV)
         else:
@@ -354,7 +345,7 @@ if __name__ == '__main__':
     log.info('Processing humidity')
     topic = 'humidity'
     p3_h_win, p3_h_var = \
-        main('intelHumidityTrain.csv', 'intelHumidityTest.csv')
+        main('intelHumidityTrain.csv', 'intelHumidityTest.csv', 0.3)
     p1_win = [3.470, 3.119, 2.782, 2.070, 1.757]
     p1_var = [3.470, 3.160, 2.847, 2.172, 1.822]
     p2_h_win = [5.365, 2.701, 1.524, 0.689, 0.452]
@@ -363,4 +354,4 @@ if __name__ == '__main__':
     p2_d_var = [3.872, 2.123, 1.476, 0.744, 0.572]
     plotAvgError(p1_win, p1_var,
                  p2_h_win, p2_h_var, p2_d_win, p2_d_var,
-                 p3_h_win, p3_h_var)
+                 p3_h_win, p3_h_var, y_max=9)
