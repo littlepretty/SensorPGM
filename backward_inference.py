@@ -119,7 +119,6 @@ def learnModelHourStationary(train_data, alpha, n=48, m=50):
         model = linear_model.Lasso(alpha=alpha, fit_intercept=False,
                                    copy_X=True, max_iter=10000)
         model.fit(X, y)
-        # Beta[i, 0] = model.intercept_
         Beta[i, :] = model.coef_
         Variance[i] = regressionErrorLasso(model, X, y)
         log.add().debug('Parameter for sensor %d: %s, %.2f' %
@@ -140,8 +139,10 @@ def learnModelHourStationary(train_data, alpha, n=48, m=50):
 
 def windowInferHourStationary(Beta, CondVar, InitMean, InitVar,
                               Test, budget, n=96, m=50):
-    """Test = m by n, test data"""
-    """Beta = m by m"""
+    """
+    Test = m by n, test data
+    Beta = m by m, parameters
+    """
     Prediction = np.zeros((m, n))
     Error = np.zeros((m, n))
     MarginalVar = np.zeros((m, n))
@@ -170,7 +171,7 @@ def windowInferHourStationary(Beta, CondVar, InitMean, InitVar,
 
     avg_error = np.sum(Error) / (m * n)
 
-    f = open('h-w%d.csv' % budget, 'wb')
+    f = open('w%d.csv' % budget, 'wb')
     writer = csv.writer(f)
     writer.writerow(title)
     for i in range(0, m):
@@ -193,7 +194,7 @@ def varianceInferHourStationary(Beta, CondVar, InitMean, InitVar,
     MarginalVar = np.zeros((m, n))
     max_indices = []
     for j in range(0, n):
-        log.add().info('%s are previously observed' % str(max_indices))
+        log.add().debug('%s are previously observed' % str(max_indices))
         log.sub()
         if j == 0:
             Prediction[:, j] = InitMean
@@ -205,7 +206,7 @@ def varianceInferHourStationary(Beta, CondVar, InitMean, InitVar,
         else:
             """
             observed sensor is in max_indices,
-            who has large prediction variance in the last  prediction
+            who has large prediction variance in the last prediction
             """
             Prediction[:, j], MarginalVar[:, j] = \
                 backwardInference(max_indices, CondVar, Beta, Test[:, j],
@@ -220,7 +221,7 @@ def varianceInferHourStationary(Beta, CondVar, InitMean, InitVar,
 
     avg_error = np.sum(Error) / (m * n)
 
-    f = open('h-v%d.csv' % budget, 'wb')
+    f = open('v%d.csv' % budget, 'wb')
     writer = csv.writer(f)
     writer.writerow(title)
     for i in range(0, m):
@@ -284,12 +285,12 @@ def hourStationary(train_data, test_data, alpha):
     for i in range(0, len(budget_cnts)):
         win_errs[i] = windowInferHourStationary(B, V, IM, IV,
                                                 test_data, budget_cnts[i])
-        log.add().info('Avg Window error = %.6f with %d budget' %
+        log.add().info('Avg Window error =\t%.6f with %d budget' %
                        (win_errs[i], budget_cnts[i]))
         log.sub()
         var_errs[i] = varianceInferHourStationary(B, V, IM, IV,
                                                   test_data, budget_cnts[i])
-        log.add().info('Avg Variance error = %.6f with %d budget' %
+        log.add().info('Avg Variance error =\t%.6f with %d budget' %
                        (var_errs[i], budget_cnts[i]))
         log.sub()
     log.sub()
@@ -320,27 +321,27 @@ if __name__ == '__main__':
              9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5,
              14.0, 14.5, 15.0, 15.5, 16.0, 16.5, 17.0, 17.5, 18.0, 18.5,
              19.0, 19.5, 20.0, 20.5, 21.0, 21.5, 22.0, 22.5, 23.0, 23.5, 0.0]
-    budget_cnts = [5]
-    # budget_cnts = [0, 5, 10, 20, 25]
+    # budget_cnts = [5]
+    budget_cnts = [0, 5, 10, 20, 25]
 
-    log.info('Processing temperature')
-    topic = 'temperature'
-    p3_h_win, p3_h_var = \
-        main('intelTemperatureTrain.csv', 'intelTemperatureTest.csv', 0.09)
-    p1_win = [1.167, 1.049, 0.938, 0.692, 0.597]
-    p1_var = [1.167, 0.967, 0.810, 0.560, 0.435]
-    p2_h_win = [2.366, 1.561, 0.905, 0.412, 0.274]
-    p2_h_var = [2.366, 1.519, 0.968, 0.454, 0.325]
-    p2_d_win = [1.125, 0.94, 0.556, 0.279, 0.214]
-    p2_d_var = [1.125, 0.774, 0.567, 0.295, 0.226]
-    p3_d_win = [0, 0, 0, 0, 0]
-    p3_d_var = [0, 0, 0, 0, 0]
-    plotAvgError(p1_win, p1_var,
-                 p2_h_win, p2_h_var, p2_d_win, p2_d_var,
-                 p3_h_win, p3_h_var, y_max=3.5)
+    # topic = 'temperature_back_infer'
+    # log.info('Processing %s' % topic)
+    # p3_h_win, p3_h_var = \
+        # main('intelTemperatureTrain.csv', 'intelTemperatureTest.csv', 0.09)
+    # p1_win = [1.167, 1.049, 0.938, 0.692, 0.597]
+    # p1_var = [1.167, 0.967, 0.810, 0.560, 0.435]
+    # p2_h_win = [2.366, 1.561, 0.905, 0.412, 0.274]
+    # p2_h_var = [2.366, 1.519, 0.968, 0.454, 0.325]
+    # p2_d_win = [1.125, 0.94, 0.556, 0.279, 0.214]
+    # p2_d_var = [1.125, 0.774, 0.567, 0.295, 0.226]
+    # p3_d_win = [0, 0, 0, 0, 0]
+    # p3_d_var = [0, 0, 0, 0, 0]
+    # plotAvgError(p1_win, p1_var,
+                 # p2_h_win, p2_h_var, p2_d_win, p2_d_var,
+                 # p3_h_win, p3_h_var, y_max=3.5)
 
-    log.info('Processing humidity')
-    topic = 'humidity'
+    topic = 'humidity_back_infer'
+    log.info('Processing %s' % topic)
     p3_h_win, p3_h_var = \
         main('intelHumidityTrain.csv', 'intelHumidityTest.csv', 0.3)
     p1_win = [3.470, 3.119, 2.782, 2.070, 1.757]
@@ -351,4 +352,4 @@ if __name__ == '__main__':
     p2_d_var = [3.872, 2.123, 1.476, 0.744, 0.572]
     plotAvgError(p1_win, p1_var,
                  p2_h_win, p2_h_var, p2_d_win, p2_d_var,
-                 p3_h_win, p3_h_var, y_max=9)
+                 p3_h_win, p3_h_var, y_max=10)
