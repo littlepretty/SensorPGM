@@ -3,6 +3,7 @@
 % amssymb package contains more mathematical symbols
 \usepackage{amssymb,amsthm}
 \usepackage{amsmath}
+\usepackage{bm}
 
 % graphicx package enables you to paste in graphics
 \usepackage{graphicx}
@@ -78,24 +79,27 @@ Phase 1
 \newpage
 
 \section{Phase 1}
+
+\subsection{Model}
 Every sensor's data at every timestamp is an isolated random variable.
 Besides, they are represented as a Gaussian model:
 \begin{align}
-        P(X_{i,j}) = N(\mu_{i,j}, \sigma_{i,j}^2)
+        p(X_{i,j}) = N(\mu_{i,j}, \sigma_{i,j}^2)
 \end{align}
 where $X_{i, j}$ is the random variable for sensor $i$'s data at time $j$.
 
-\section{Phase 1 Experiment Results}
+\subsection{Phase 1 Experiment Results}
 \label{sec:phase1:result}
+See Figure~\ref{fig:phase1:temperature} and Figure~\ref{fig:phase1:humidity}.
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
         \includegraphics[width=0.58\textwidth]{../phase1/temperature_err}
         \caption{Inference Errors of \textbf{Temperature} Data at Different Budget Level}
 \label{fig:phase1:temperature}
 \end{figure}
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
         \includegraphics[width=0.58\textwidth]{../phase1/humidity_err}
         \caption{Inference Errors of \textbf{Humidity} Data at Different Budget Level}
@@ -106,8 +110,8 @@ where $X_{i, j}$ is the random variable for sensor $i$'s data at time $j$.
 For sensor $i$, the network model is a linear chain.
 States are first-order Markovian.
 \begin{align}
-        & P(X_{i,j}|X_{i,j-1}) = N(\beta_0 + \beta_1 X_{i,j-1}, var_{X_{i,j}|X_{i,j-1}}) \\
-        & P(X_{i,j}) = P(X_{i, j-1})P(X_{i,j}|X_{i, j-1})
+        & p(X_{i,j}|X_{i,j-1}) = N(\beta_0 + \beta_1 X_{i,j-1}, var_{X_{i,j}|X_{i,j-1}}) \\
+        & p(X_{i,j}) = P(X_{i, j-1})P(X_{i,j}|X_{i, j-1})
 \end{align}
 
 \subsection{Hour Stationary Model}
@@ -134,29 +138,68 @@ They are data from 1st day's 23.5 to 2nd day's 0.0,
 and data from 2nd day's 23.5 to 3rd day's 0.0.
 
 
-\section{Phase 2 Experiment Results}
+\subsection{Phase 2 Experiment Results}
 \label{sec:phase2:result}
+See Figure~\ref{fig:phase2:temperature} and Figure~\ref{fig:phase2:humidity}.
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
         \includegraphics[width=0.58\textwidth]{../phase2/temperature_err}
         \caption{Inference Errors of \textbf{Temperature} Data at Different Budget Level}
-\label{fig:phase1:temperature}
+\label{fig:phase2:temperature}
 \end{figure}
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
         \includegraphics[width=0.58\textwidth]{../phase2/humidity_err}
         \caption{Inference Errors of \textbf{Humidity} Data at Different Budget Level}
-\label{fig:phase1:humidity}
+\label{fig:phase2:humidity}
 \end{figure}
 
 
 \section{Phase 3 without Backward Inference}
+\subsection{Model}
 In phase 3, we assume hour-level stationary.
+The model becomes more complicated since we consider the correlation between sensors:
+\begin{align}
+        p(X^{t}_i|\mathbf{X}^{t-1}) = \mathcal{N}(\beta_0 + \bm{\beta}\mathbf{X}^{t-1}; \sigma_i^2)
+\end{align}
+where $m=50$ is the number of sensors.
+The prediction for sensor $i$ at time $j$ will be based on mean and variance:
+\begin{align}
+        & \mu_{X_{i,j}} = \beta_{i,0} + \sum_{k=1}^{m} \beta_{i,k} \mu_{X_{k,j-1}} \\
+        & var_{X_{i,j}} = var_{X_{i,j}|X_{1,j-1},\ldots, X_{m,j-1}} + \sum_{k=1}^{m}\beta_{i,k}^2 var_{X_{k,j-1}}
+\end{align}
+$\bm{\beta}_i$ for sensor $i$ is learn by Lasso regression with $\alpha = 0.1$.
+$\sigma_i^2$ is the regression variance.
+Without considering observed data could influence backward,
+the inference is the same as phase 2.
+
+\subsection{Experiment Results}
+See Figure~\ref{fig:phase3:temperature} and Figure~\ref{fig:phase3:humidity}.
+
+\begin{figure}[H]
+\centering
+        \includegraphics[width=0.58\textwidth]{../phase3/temperature_err}
+        \caption{Inference Errors of \textbf{Temperature} Data at Different Budget Level}
+\label{fig:phase3:temperature}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+        \includegraphics[width=0.58\textwidth]{../phase3/humidity_err}
+        \caption{Inference Errors of \textbf{Humidity} Data at Different Budget Level}
+\label{fig:phase3:humidity}
+\end{figure}
+
+
+
+\section{Phase 3 with Backward Inference}
+
+\subsection{Model}
 The Markovian temporal model for sensor $i$ is
 \begin{align}
-        P(\mathbf{X}^t | \mathbf{X}^{t-1}) = \mathcal{N}(\mathit{A} \mathbf{X}^{t-1}; Q)
+        P(\mathbf{X}^t | \mathbf{X}^{t-1}) = \mathcal{N}(\mathit{A} \mathbf{X}^{t-1}; Q) \\
 \end{align}
 where $\mathbf{X}$ is a $50 \times 1$ vector, representing 50 sensors.
 The parameters needed to be learned are
@@ -164,10 +207,50 @@ The parameters needed to be learned are
 \item $\mathit{A}$: a 50 $\times$ 50 matrix describing the temporal transition relation
 \item $\mathit{Q}$: a 50 $\times$ 50 diagonal matrix describing the conditional variance
 \end{itemize}
-Without considering observed data could influence backward,
-the inference is the same as phase 2.
+Lasso regression is used to learn these parameters.
+Notice that $A$ is different from $\bm{\beta}$ in that there is no intercept $\beta_0$ in $A$.
+For temperature data, $\alpha$ in Lasso regression is 0.09;
+for humidity data, $\alpha$ in Lasso regression is 0.3.
 
-\section{Phase 3 with Backward Inference}
+\subsection{The Kalman Filter}
+Inference using Kalman Filter contains two steps.
+First, we have the normal \textit{state transition update}:
+\begin{align}
+        & \mu^{t} = \mathit{A} \mu^{t-1} \label{equ:transition:mu} \\
+        & \Sigma^{t} = \mathit{A}\Sigma^{t-1}\mathit{A}^\mathit{T} + \mathit{Q}\label{equ:transition:sigma}
+\end{align}
+When we have a set of $k$ observed sensors $\mathbf{O}$ at $t+1$ time step,
+we can update $\mu^{t}$ and $\Sigma^{t}$ using Kalman Gain:
+\begin{align}
+        & K^t = \Sigma^t H^T (H\Sigma^{t}H^T + R)^{-1} \\
+        & \mu^t = \mu^t + K^t(\mathbf{O}^t - H\mu^t) \\
+        & \Sigma^t = (I - K^t H)\Sigma^t 
+\end{align}
+where $H$ is $k$ by $k$ parameter matrix, extracted from the rows of observed sensor in $A$,
+$R$ is $k$ by $k$ diagonal matrix constructed from $Q$ using the rows of the observed sensors.
+
+Now we can use Equation~\ref{equ:transition:mu} and Equation~\ref{equ:transition:sigma}
+to predict the unobserved sensor at time $t+1$.
+Notice that $k$ observations are used together to update last time step's means and variances.
+If I do this backward update $k$ times iteratively, iteration will diverge.
+
+
+\subsection{Experiment Results}
+See Figure~\ref{fig:phase3_back_infer:temperature} and Figure~\ref{fig:phase3_back_infer:humidity}.
+
+\begin{figure}[H]
+\centering
+        \includegraphics[width=0.58\textwidth]{../phase3_backinfer/temperature_back_infer_err}
+        \caption{Inference Errors of \textbf{Temperature} Data at Different Budget Level}
+\label{fig:phase3_back_infer:temperature}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+        \includegraphics[width=0.58\textwidth]{../phase3_backinfer/humidity_back_infer_err}
+        \caption{Inference Errors of \textbf{Humidity} Data at Different Budget Level}
+\label{fig:phase3_back_infer:humidity}
+\end{figure}
 
 
 
