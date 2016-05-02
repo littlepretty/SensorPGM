@@ -96,6 +96,15 @@ def regressionErrorLasso(model, input, target):
     return np.var(Error)
 
 
+def numberMatches(Error):
+    cnt = 0
+    for row in Error:
+        for x in row:
+            if x < 0.0001:
+                cnt += 1
+    return cnt
+
+
 def learnModelHourStationary(train_data, alpha, n=48, m=50):
     """
     Beta = m * m matrix,
@@ -147,17 +156,21 @@ def windowInferHourStationary(Beta, CondVar, InitMean, InitVar,
     Error = np.zeros((m, n))
     MarginalVar = np.zeros((m, n))
     for j in range(0, n):
+        """wrap up window indices"""
+        window_start = (j * budget) % m
+        window_end = window_start + budget
+        window_indices = []
+        for k in range(window_start, window_end):
+            index = k % m
+            window_indices.append(index)
+
         if j == 0:
             Prediction[:, j] = InitMean
             MarginalVar[:, j] = InitVar
+            for index in window_indices:
+                Prediction[index, j] = Test[index, j]
+                MarginalVar[index, j] = 0
         else:
-            """replace prediction with test data inside window"""
-            window_start = (j * budget) % m
-            window_end = window_start + budget
-            window_indices = []
-            for k in range(window_start, window_end):
-                index = k % m
-                window_indices.append(index)
             # predict unobserved data with backward inference
             Prediction[:, j], MarginalVar[:, j] = \
                 backwardInference(window_indices, CondVar, Beta, Test[:, j],
@@ -170,6 +183,9 @@ def windowInferHourStationary(Beta, CondVar, InitMean, InitVar,
         Error[:, j] = np.absolute(Error[:, j])
 
     avg_error = np.sum(Error) / (m * n)
+    cnt = numberMatches(Error)
+    log.add().info("Window Infer #Matches = %d" % cnt)
+    log.sub()
 
     f = open('w%d.csv' % budget, 'wb')
     writer = csv.writer(f)
@@ -220,6 +236,9 @@ def varianceInferHourStationary(Beta, CondVar, InitMean, InitVar,
         Error[:, j] = np.absolute(Error[:, j])
 
     avg_error = np.sum(Error) / (m * n)
+    cnt = numberMatches(Error)
+    log.add().info("#Matches = %d" % cnt)
+    log.sub()
 
     f = open('v%d.csv' % budget, 'wb')
     writer = csv.writer(f)
@@ -324,21 +343,21 @@ if __name__ == '__main__':
     # budget_cnts = [5]
     budget_cnts = [0, 5, 10, 20, 25]
 
-    # topic = 'temperature_back_infer'
-    # log.info('Processing %s' % topic)
-    # p3_h_win, p3_h_var = \
-        # main('intelTemperatureTrain.csv', 'intelTemperatureTest.csv', 0.09)
-    # p1_win = [1.167, 1.049, 0.938, 0.692, 0.597]
-    # p1_var = [1.167, 0.967, 0.810, 0.560, 0.435]
-    # p2_h_win = [2.366, 1.561, 0.905, 0.412, 0.274]
-    # p2_h_var = [2.366, 1.519, 0.968, 0.454, 0.325]
-    # p2_d_win = [1.125, 0.94, 0.556, 0.279, 0.214]
-    # p2_d_var = [1.125, 0.774, 0.567, 0.295, 0.226]
-    # p3_d_win = [0, 0, 0, 0, 0]
-    # p3_d_var = [0, 0, 0, 0, 0]
-    # plotAvgError(p1_win, p1_var,
-                 # p2_h_win, p2_h_var, p2_d_win, p2_d_var,
-                 # p3_h_win, p3_h_var, y_max=3.5)
+    topic = 'temperature_back_infer'
+    log.info('Processing %s' % topic)
+    p3_h_win, p3_h_var = \
+        main('intelTemperatureTrain.csv', 'intelTemperatureTest.csv', 0.09)
+    p1_win = [1.167, 1.049, 0.938, 0.692, 0.597]
+    p1_var = [1.167, 0.967, 0.810, 0.560, 0.435]
+    p2_h_win = [2.366, 1.561, 0.905, 0.412, 0.274]
+    p2_h_var = [2.366, 1.519, 0.968, 0.454, 0.325]
+    p2_d_win = [1.125, 0.94, 0.556, 0.279, 0.214]
+    p2_d_var = [1.125, 0.774, 0.567, 0.295, 0.226]
+    p3_d_win = [0, 0, 0, 0, 0]
+    p3_d_var = [0, 0, 0, 0, 0]
+    plotAvgError(p1_win, p1_var,
+                 p2_h_win, p2_h_var, p2_d_win, p2_d_var,
+                 p3_h_win, p3_h_var, y_max=3.5)
 
     topic = 'humidity_back_infer'
     log.info('Processing %s' % topic)
