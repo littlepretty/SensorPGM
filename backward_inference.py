@@ -114,7 +114,7 @@ def learnModelHourStationary(train_data, alpha, n=48, m=50):
     InitMean = m length list, initial mean
     InitVar = m length list, cond variance e.g. regression error
     """
-    Beta = np.zeros((m, m))
+    Beta = np.zeros((m, m + 1))
     Variance = np.zeros(m)
     InitMean = np.zeros(m)
     InitVar = np.zeros(m)
@@ -125,10 +125,12 @@ def learnModelHourStationary(train_data, alpha, n=48, m=50):
         X = [train_data[:, j] for j in range(0, three_day-1)]
         y = train_data[i][1:]
         """no intercept in the model"""
-        model = linear_model.Lasso(alpha=alpha, fit_intercept=False,
-                                   copy_X=True, max_iter=10000)
+        model = linear_model.Lasso(alpha=alpha, fit_intercept=True,
+                                   copy_X=True, max_iter=10000,
+                                   warm_start=False, tol=0.0001)
         model.fit(X, y)
-        Beta[i, :] = model.coef_
+        Beta[i, 0] = model.intercept_
+        Beta[i, 1:] = model.coef_
         Variance[i] = regressionErrorLasso(model, X, y)
         log.add().debug('Parameter for sensor %d: %s, %.2f' %
                         (i, str(Beta[i, :]), Variance[i]))
@@ -255,19 +257,21 @@ def backwardInference(ob_indices, CondVar, Beta, Test,
     """
     ob_indices: indices of observed variables
     CondVar: m * 1 list, cond variance of ALL variables
-    Beta: m * m transition model
+    Beta: m * (m+1) transition model
     Observed: ALL test data used as observation
     LastPredict: m * 1, u_t, update it using Kalman Gain equation
     LastMarginalVar: m * m, sigma_t, update is using Kalman Gain equation
     Prediction: m * 1, prediction based on its parents and observations
     """
-    LastMarginalVar = np.diag(LastMarginalVar)
-    I = np.identity(m)
+    # patch u_t and sigma_t with 1 and 0
+    LastMarginalVar = np.diag(np.insert(LastMarginalVar, 0, 0.0))
+    LastPredict = np.insert(LastPredict, 0, 1.0)
+    I = np.identity(m + 1)
     Prediction = np.zeros(m)
     MarginalVar = np.zeros(m)
     o = len(ob_indices)
     O = np.zeros(o)
-    H = np.zeros((o, m))
+    H = np.zeros((o, m + 1))
     R = np.zeros((o, o))
     for (i, index) in enumerate(ob_indices):
         H[i, :] = Beta[index, :]
@@ -286,8 +290,8 @@ def backwardInference(ob_indices, CondVar, Beta, Test,
     for i in range(0, m):
         if i not in ob_indices:
             Prediction[i] = np.dot(Beta[i, :], LastPredict)
-            BetaSquared = np.square(Beta[i, :])
-            LMV = [LastMarginalVar[k, k] for k in range(0, m)]
+            BetaSquared = np.square(Beta[i, 1:])
+            LMV = [LastMarginalVar[k, k] for k in range(1, m+1)]
             MarginalVar[i] = CondVar[i] + np.dot(BetaSquared, LMV)
         else:
             Prediction[i] = Test[i]
