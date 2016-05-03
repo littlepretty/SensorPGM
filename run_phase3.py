@@ -33,9 +33,9 @@ def plotAvgError(p1_win, p1_var,
     labels = ('Phase 1 Window', 'Phase 1 Variance',
               'Phase 2 H-Window', 'Phase 2 H-Variance',
               'Phase 2 D-Window', 'Phase 2 D-Variance',
-              'Phase 3 H-Window', 'Phase 3 H-Variance')
+              'Phase 3 Window', 'Phase 3 Variance')
     hatches = ['/', '\\', '//', 'x', '+']
-    colors = ['b', 'r', 'g', 'c', 'm', 'y']
+    colors = ['b', 'r', 'g', 'c', 'm', 'orange', 'indigo', 'gold']
     rects = []
     index_cnt = len(data_list) + 1
     index = np.arange(0, index_cnt * width * len(budget_cnts),
@@ -80,8 +80,17 @@ def findLargestK(error, k, m=50):
 
 def regressionErrorLasso(model, input, target):
     Predict = model.predict(input)
-    Error = np.subtract(Predict, target)
+    Error = Predict - target
+    print np.mean(Error)
     return np.var(Error)
+
+
+def regressionError(beta, input, target):
+    error = np.zeros(len(input))
+    for (i, x) in enumerate(input):
+        predict = beta[0] + np.dot(beta[1:], x)
+        error[i] = target[i] - predict
+    return np.var(error)
 
 
 def findRelevantVariables(Beta, n=48, m=50):
@@ -118,16 +127,19 @@ def learnModelHourStationary(train_data, n=48, m=50):
     InitMean = np.zeros(m)
     InitVar = np.zeros(m)
     three_day = n * 3
+    log.add().info("Lasso regression with alpha = %.3f" % alpha)
+    log.sub()
     for i in range(0, m):
         X = [train_data[:, j] for j in range(0, three_day-1)]
         y = train_data[i][1:]
         """this model DOES have intercept"""
-        model = linear_model.Lasso(alpha=0.1, fit_intercept=True,
+        model = linear_model.Lasso(alpha=alpha, fit_intercept=True,
                                    copy_X=True, max_iter=10000)
         model.fit(X, y)
         Beta[i, 0] = model.intercept_
         Beta[i, 1:] = model.coef_
-        Variance[i] = regressionErrorLasso(model, X, y)
+        # Variance[i] = regressionErrorLasso(model, X, y)
+        Variance[i] = regressionError(Beta[i, :], X, y)
         log.add().debug('Parameter for sensor %d: %s, %.2f' %
                         (i, str(Beta[i, :]), Variance[i]))
         log.sub()
@@ -137,8 +149,9 @@ def learnModelHourStationary(train_data, n=48, m=50):
         InitMean[i] = np.mean(train_data[i, :])
         InitVar[i] = np.var(train_data[i, :])
 
-    log.add().debug('Init mean = %s' % str(InitMean))
-    log.debug('Init variance = %s' % str(InitVar))
+    log.add().info('Init mean = %s' % str(InitMean))
+    log.info('Init variance = %s' % str(InitVar))
+    log.info('Cond variance = %s' % str(Variance))
     log.sub()
     return Beta, Variance, InitMean, InitVar
 
@@ -172,8 +185,8 @@ def windowInferHourStationary(Beta, InitMean, Test, budget, n=96, m=50):
         Error[:, j] = Test[:, j] - Prediction[:, j]
         Error[:, j] = np.absolute(Error[:, j])
 
-    cnt = numberZeros(Error)
-    log.add().info("#Match = %d" % cnt)
+    win_match_cnt = numberZeros(Error)
+    log.add().debug("#Match = %d" % win_match_cnt)
     log.sub()
     avg_error = np.sum(Error) / (m * n)
 
@@ -184,7 +197,7 @@ def windowInferHourStationary(Beta, InitMean, Test, budget, n=96, m=50):
         row = np.insert(Prediction[i, :], 0, i)
         writer.writerow(row)
 
-    return avg_error
+    return avg_error, win_match_cnt
 
 
 def varianceInferHourStationary(Beta, CondVar, InitMean, InitVar,
@@ -224,8 +237,8 @@ def varianceInferHourStationary(Beta, CondVar, InitMean, InitVar,
         Error[:, j] = np.subtract(Test[:, j], Prediction[:, j])
         Error[:, j] = np.absolute(Error[:, j])
 
-    cnt = numberZeros(Error)
-    log.add().info("#Match = %d" % cnt)
+    var_match_cnt = numberZeros(Error)
+    log.add().debug("#Match = %d" % var_match_cnt)
     log.sub()
     avg_error = np.sum(Error) / (m * n)
 
@@ -236,25 +249,30 @@ def varianceInferHourStationary(Beta, CondVar, InitMean, InitVar,
         row = np.insert(Prediction[i, :], 0, i)
         writer.writerow(row)
 
-    return avg_error
+    return avg_error, var_match_cnt
 
 
 def hourStationary(train_data, test_data):
     win_errs = [0] * len(budget_cnts)
     var_errs = [0] * len(budget_cnts)
+    win_match = [0] * len(budget_cnts)
+    var_match = [0] * len(budget_cnts)
     log.add().info('Hour stationary assumption')
     B, V, IM, IV = learnModelHourStationary(train_data)
     for i in range(0, len(budget_cnts)):
-        win_errs[i] = windowInferHourStationary(B, IM,
-                                                test_data, budget_cnts[i])
+        win_errs[i], win_match[i] = \
+            windowInferHourStationary(B, IM, test_data, budget_cnts[i])
         log.add().info('Avg Window error =\t%.4f with %d budget' %
                        (win_errs[i], budget_cnts[i]))
         log.sub()
-        var_errs[i] = varianceInferHourStationary(B, V, IM, IV,
-                                                  test_data, budget_cnts[i])
+        var_errs[i], var_match[i] = \
+            varianceInferHourStationary(B, V, IM, IV, test_data, budget_cnts[i])
         log.add().info('Avg Variance error =\t%.4f with %d budget' %
                        (var_errs[i], budget_cnts[i]))
         log.sub()
+    log.sub()
+    log.add().info("#Window match = \t%s" % win_match)
+    log.info("#Variance match = \t%s" % var_match)
     log.sub()
     return win_errs, var_errs
 
@@ -285,11 +303,13 @@ if __name__ == '__main__':
              19.0, 19.5, 20.0, 20.5, 21.0, 21.5, 22.0, 22.5, 23.0, 23.5, 0.0]
     # budget_cnts = [5]
     budget_cnts = [0, 5, 10, 20, 25]
-    topic = 'temperature'
-    log.info('Processing %s' % topic)
 
+    alpha = 0.08
+    topic = 'temperature'
+    log.info('Processing %s with alpha=%.3f' % (topic, alpha))
     p3_h_win, p3_h_var = \
         main('intelTemperatureTrain.csv', 'intelTemperatureTest.csv')
+    # copy previous phases' results
     p1_win = [1.167, 1.049, 0.938, 0.692, 0.597]
     p1_var = [1.167, 0.967, 0.810, 0.560, 0.435]
     p2_h_win = [2.366, 1.561, 0.905, 0.412, 0.274]
@@ -300,10 +320,12 @@ if __name__ == '__main__':
                  p2_h_win, p2_h_var, p2_d_win, p2_d_var,
                  p3_h_win, p3_h_var, y_max=3.5)
 
+    alpha = 0.1
     topic = 'humidity'
-    log.info('Processing %s' % topic)
+    log.info('Processing %s with alpha=%.3f' % (topic, alpha))
     p3_h_win, p3_h_var = \
         main('intelHumidityTrain.csv', 'intelHumidityTest.csv')
+    # copy previous phases' results
     p1_win = [3.470, 3.119, 2.782, 2.070, 1.757]
     p1_var = [3.470, 3.160, 2.847, 2.172, 1.822]
     p2_h_win = [5.365, 2.701, 1.524, 0.689, 0.452]

@@ -33,9 +33,9 @@ def plotAvgError(p1_win, p1_var,
     labels = ('Phase 1 Window', 'Phase 1 Variance',
               'Phase 2 H-Window', 'Phase 2 H-Variance',
               'Phase 2 D-Window', 'Phase 2 D-Variance',
-              'Phase 3 H-Window', 'Phase 3 H-Variance')
+              'Phase 3 Window', 'Phase 3 Variance')
     hatches = ['/', '\\', '//', 'x', '+']
-    colors = ['b', 'r', 'g', 'c', 'm', 'y']
+    colors = ['b', 'r', 'g', 'c', 'm', 'orange', 'indigo', 'gold']
     rects = []
     index_cnt = len(data_list) + 1
     index = np.arange(0, index_cnt * width * len(budget_cnts),
@@ -105,7 +105,7 @@ def numberMatches(Error):
     return cnt
 
 
-def learnModelHourStationary(train_data, alpha, n=48, m=50):
+def learnModelHourStationary(train_data, n=48, m=50):
     """
     Beta = m * m matrix,
     Beta[i] = [beta, beta_1,...,beta_m] for sensor i]
@@ -186,7 +186,7 @@ def windowInferHourStationary(Beta, CondVar, InitMean, InitVar,
 
     avg_error = np.sum(Error) / (m * n)
     cnt = numberMatches(Error)
-    log.add().info("Window Infer #Matches = %d" % cnt)
+    log.add().debug("Window Infer #Matches = %d" % cnt)
     log.sub()
 
     f = open('w%d.csv' % budget, 'wb')
@@ -196,7 +196,7 @@ def windowInferHourStationary(Beta, CondVar, InitMean, InitVar,
         row = np.insert(Prediction[i, :], 0, i)
         writer.writerow(row)
 
-    return avg_error
+    return avg_error, cnt
 
 
 def varianceInferHourStationary(Beta, CondVar, InitMean, InitVar,
@@ -239,7 +239,7 @@ def varianceInferHourStationary(Beta, CondVar, InitMean, InitVar,
 
     avg_error = np.sum(Error) / (m * n)
     cnt = numberMatches(Error)
-    log.add().info("#Matches = %d" % cnt)
+    log.add().debug("#Matches = %d" % cnt)
     log.sub()
 
     f = open('v%d.csv' % budget, 'wb')
@@ -249,7 +249,7 @@ def varianceInferHourStationary(Beta, CondVar, InitMean, InitVar,
         row = np.insert(Prediction[i, :], 0, i)
         writer.writerow(row)
 
-    return avg_error
+    return avg_error, cnt
 
 
 def backwardInference(ob_indices, CondVar, Beta, Test,
@@ -300,32 +300,37 @@ def backwardInference(ob_indices, CondVar, Beta, Test,
     return Prediction, MarginalVar
 
 
-def hourStationary(train_data, test_data, alpha):
+def hourStationary(train_data, test_data):
     win_errs = [0] * len(budget_cnts)
     var_errs = [0] * len(budget_cnts)
+    win_match = [0] * len(budget_cnts)
+    var_match = [0] * len(budget_cnts)
     log.add().info('Hour stationary assumption')
-    B, V, IM, IV = learnModelHourStationary(train_data, alpha)
+    B, V, IM, IV = learnModelHourStationary(train_data)
     for i in range(0, len(budget_cnts)):
-        win_errs[i] = windowInferHourStationary(B, V, IM, IV,
-                                                test_data, budget_cnts[i])
-        log.add().info('Avg Window error =\t%.6f with %d budget' %
+        win_errs[i], win_match[i] = \
+            windowInferHourStationary(B, V, IM, IV, test_data, budget_cnts[i])
+        log.add().info('Avg Window error =\t%.4f with %d budget' %
                        (win_errs[i], budget_cnts[i]))
         log.sub()
-        var_errs[i] = varianceInferHourStationary(B, V, IM, IV,
-                                                  test_data, budget_cnts[i])
-        log.add().info('Avg Variance error =\t%.6f with %d budget' %
+        var_errs[i], var_match[i] = \
+            varianceInferHourStationary(B, V, IM, IV, test_data, budget_cnts[i])
+        log.add().info('Avg Variance error =\t%.4f with %d budget' %
                        (var_errs[i], budget_cnts[i]))
         log.sub()
+    log.sub()
+    log.add().info("#Window match = \t%s" % win_match)
+    log.info("#Variance match = \t%s" % var_match)
     log.sub()
     return win_errs, var_errs
 
 
-def main(train_file, test_file, alpha=0.1):
+def main(train_file, test_file):
     """train_data = m * (3 day) shape matrix"""
     train_data = readInData(train_file)
     """test_data = m * (2 day) shape matrix"""
     test_data = readInData(test_file)
-    h_win_err, h_var_err = hourStationary(train_data, test_data, alpha)
+    h_win_err, h_var_err = hourStationary(train_data, test_data)
 
     return h_win_err, h_var_err
 
@@ -347,10 +352,11 @@ if __name__ == '__main__':
     # budget_cnts = [5]
     budget_cnts = [0, 5, 10, 20, 25]
 
+    alpha = 0.08
     topic = 'temperature_back_infer'
     log.info('Processing %s' % topic)
     p3_h_win, p3_h_var = \
-        main('intelTemperatureTrain.csv', 'intelTemperatureTest.csv', 0.09)
+        main('intelTemperatureTrain.csv', 'intelTemperatureTest.csv')
     p1_win = [1.167, 1.049, 0.938, 0.692, 0.597]
     p1_var = [1.167, 0.967, 0.810, 0.560, 0.435]
     p2_h_win = [2.366, 1.561, 0.905, 0.412, 0.274]
@@ -363,10 +369,11 @@ if __name__ == '__main__':
                  p2_h_win, p2_h_var, p2_d_win, p2_d_var,
                  p3_h_win, p3_h_var, y_max=3.5)
 
+    alpha = 0.3
     topic = 'humidity_back_infer'
     log.info('Processing %s' % topic)
     p3_h_win, p3_h_var = \
-        main('intelHumidityTrain.csv', 'intelHumidityTest.csv', 0.3)
+        main('intelHumidityTrain.csv', 'intelHumidityTest.csv')
     p1_win = [3.470, 3.119, 2.782, 2.070, 1.757]
     p1_var = [3.470, 3.160, 2.847, 2.172, 1.822]
     p2_h_win = [5.365, 2.701, 1.524, 0.689, 0.452]
@@ -375,4 +382,4 @@ if __name__ == '__main__':
     p2_d_var = [3.872, 2.123, 1.476, 0.744, 0.572]
     plotAvgError(p1_win, p1_var,
                  p2_h_win, p2_h_var, p2_d_win, p2_d_var,
-                 p3_h_win, p3_h_var, y_max=10)
+                 p3_h_win, p3_h_var, y_max=8)

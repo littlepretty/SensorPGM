@@ -22,7 +22,6 @@ def plotAvgError(p1_win, p1_var,
                  p2_all_win, p2_all_var,
                  p2_day_win, p2_day_var,
                  p3_all_win, p3_all_var,
-                 p3_day_win, p3_day_var,
                  y_max=8):
     matplotlib.rc('font', size=18)
     width = 2
@@ -30,14 +29,13 @@ def plotAvgError(p1_win, p1_var,
     data_list = [p1_win, p1_var,
                  p2_all_win, p2_all_var,
                  p2_day_win, p2_day_var,
-                 p3_all_win, p3_all_var,
-                 p3_day_win, p3_day_var]
+                 p3_all_win, p3_all_var]
     labels = ('Phase 1 Window', 'Phase 1 Variance',
               'Phase 2 H-Window', 'Phase 2 H-Variance',
               'Phase 2 D-Window', 'Phase 2 D-Variance',
-              'Phase 3 H-Window', 'Phase 3 H-Variance')
+              'Phase 3 Window', 'Phase 3 Variance')
     hatches = ['/', '\\', '//', 'x', '+']
-    colors = ['b', 'r', 'g', 'c', 'm', 'y']
+    colors = ['b', 'r', 'g', 'c', 'm', 'orange', 'indigo', 'gold']
     rects = []
     index_cnt = len(data_list) + 1
     index = np.arange(0, index_cnt * width * len(budget_cnts),
@@ -96,6 +94,15 @@ def findRelevantVariables(Beta, n=48, m=50):
                         (sensor, RelevantVar[sensor]))
         log.sub()
     return RelevantVar
+
+
+def numberZeros(Error):
+    cnt = 0
+    for row in Error:
+        for x in row:
+            if x < 0.0001:
+                cnt += 1
+    return cnt
 
 
 def learnModelHourStationary(train_data, n=48, m=50):
@@ -165,9 +172,12 @@ def windowInferHourStationary(Beta, InitMean, Test, budget, n=96, m=50):
         Error[:, j] = Test[:, j] - Prediction[:, j]
         Error[:, j] = np.absolute(Error[:, j])
 
+    cnt = numberZeros(Error)
+    log.add().info("#Match = %d" % cnt)
+    log.sub()
     avg_error = np.sum(Error) / (m * n)
 
-    f = open('h-w%d.csv' % budget, 'wb')
+    f = open('w%d.csv' % budget, 'wb')
     writer = csv.writer(f)
     writer.writerow(title)
     for i in range(0, m):
@@ -214,9 +224,12 @@ def varianceInferHourStationary(Beta, CondVar, InitMean, InitVar,
         Error[:, j] = np.subtract(Test[:, j], Prediction[:, j])
         Error[:, j] = np.absolute(Error[:, j])
 
+    cnt = numberZeros(Error)
+    log.add().info("#Match = %d" % cnt)
+    log.sub()
     avg_error = np.sum(Error) / (m * n)
 
-    f = open('h-v%d.csv' % budget, 'wb')
+    f = open('v%d.csv' % budget, 'wb')
     writer = csv.writer(f)
     writer.writerow(title)
     for i in range(0, m):
@@ -272,9 +285,9 @@ if __name__ == '__main__':
              19.0, 19.5, 20.0, 20.5, 21.0, 21.5, 22.0, 22.5, 23.0, 23.5, 0.0]
     # budget_cnts = [5]
     budget_cnts = [0, 5, 10, 20, 25]
+
     topic = 'temperature'
     log.info('Processing %s' % topic)
-
     p3_h_win, p3_h_var = \
         main('intelTemperatureTrain.csv', 'intelTemperatureTest.csv')
     p1_win = [1.167, 1.049, 0.938, 0.692, 0.597]
@@ -283,11 +296,9 @@ if __name__ == '__main__':
     p2_h_var = [2.366, 1.519, 0.968, 0.454, 0.325]
     p2_d_win = [1.125, 0.94, 0.556, 0.279, 0.214]
     p2_d_var = [1.125, 0.774, 0.567, 0.295, 0.226]
-    p3_d_win = [0, 0, 0, 0, 0]
-    p3_d_var = [0, 0, 0, 0, 0]
     plotAvgError(p1_win, p1_var,
                  p2_h_win, p2_h_var, p2_d_win, p2_d_var,
-                 p3_h_win, p3_h_var, p3_d_win, p3_d_var, y_max=3.5)
+                 p3_h_win, p3_h_var, y_max=3.5)
 
     topic = 'humidity'
     log.info('Processing %s' % topic)
@@ -301,4 +312,4 @@ if __name__ == '__main__':
     p2_d_var = [3.872, 2.123, 1.476, 0.744, 0.572]
     plotAvgError(p1_win, p1_var,
                  p2_h_win, p2_h_var, p2_d_win, p2_d_var,
-                 p3_h_win, p3_h_var, p3_d_win, p3_d_var)
+                 p3_h_win, p3_h_var)

@@ -199,16 +199,18 @@ See Figure~\ref{fig:phase3:temperature} and Figure~\ref{fig:phase3:humidity}.
 \subsection{Model}
 The Markovian temporal model for sensor $i$ is
 \begin{align}
-        P(\mathbf{X}^t | \mathbf{X}^{t-1}) = \mathcal{N}(\mathit{A} \mathbf{X}^{t-1}; Q) \\
+        P(\mathbf{X}^t | \mathbf{X}^{t-1}) = \mathcal{N}(A \mathbf{X}^{t-1}; Q) \\
 \end{align}
-where $\mathbf{X}$ is a $50 \times 1$ vector, representing 50 sensors.
+where $\mathbf{X}$ is a $(m+1) \times 1$ vector, representing $m$ sensors and 1 imaginary parent
+who's value is constant 1.
 The parameters needed to be learned are
 \begin{itemize}
-\item $\mathit{A}$: a 50 $\times$ 50 matrix describing the temporal transition relation
-\item $\mathit{Q}$: a 50 $\times$ 50 diagonal matrix describing the conditional variance
+        \item $A$: a $(m+1)\times (m+1)$ matrix describing the temporal transition relation
+        \item $Q$: a $(m+1)\times (m+1)$ diagonal matrix describing the conditional variance
 \end{itemize}
 Lasso regression is used to learn these parameters.
-Notice that $A$ is different from $\bm{\beta}$ in that there is no intercept $\beta_0$ in $A$.
+Notice that in $A$ there is an parameter for intercept ($\beta_0$).
+The first element in $Q$'s diagonal is zero, since the imaginary parent is always observed as 1.
 For temperature data, $\alpha$ in Lasso regression is 0.09;
 for humidity data, $\alpha$ in Lasso regression is 0.3.
 
@@ -216,8 +218,8 @@ for humidity data, $\alpha$ in Lasso regression is 0.3.
 Inference using Kalman Filter contains two steps.
 First, we have the normal \textit{state transition update}:
 \begin{align}
-        & \mu^{t} = \mathit{A} \mu^{t-1} \label{equ:transition:mu} \\
-        & \Sigma^{t} = \mathit{A}\Sigma^{t-1}\mathit{A}^\mathit{T} + \mathit{Q}\label{equ:transition:sigma}
+        & \mu^{t} = A \mu^{t-1} \label{equ:transition:mu} \\
+        & \Sigma^{t} = A\Sigma^{t-1}A^T + Q\label{equ:transition:sigma}
 \end{align}
 When we have a set of $k$ observed sensors $\mathbf{O}$ at $t+1$ time step,
 we can update $\mu^{t}$ and $\Sigma^{t}$ using Kalman Gain:
@@ -226,12 +228,14 @@ we can update $\mu^{t}$ and $\Sigma^{t}$ using Kalman Gain:
         & \mu^t = \mu^t + K^t(\mathbf{O}^t - H\mu^t) \\
         & \Sigma^t = (I - K^t H)\Sigma^t 
 \end{align}
-where $H$ is $k$ by $k$ parameter matrix, extracted from the rows of observed sensor in $A$,
-$R$ is $k$ by $k$ diagonal matrix constructed from $Q$ using the rows of the observed sensors.
+where $H$ is $m+1$ by $k$ parameter matrix, extracted from the rows of observed sensor in $A$,
+$R$ is $k$ by $k$ diagonal matrix constructed from $Q$ using the rows of the observed sensors,
+$\mathbf{O}$ is a $k$ by 1 vector of observed sensor data.
 
-Now we can use Equation~\ref{equ:transition:mu} and Equation~\ref{equ:transition:sigma}
+Now we can use again Equation~\ref{equ:transition:mu} and Equation~\ref{equ:transition:sigma}
 to predict the unobserved sensor at time $t+1$.
-Notice that $k$ observations are used together to update last time step's means and variances.
+Notice that $k$ observations are used (e.g. $\mathbf{O}$ is a vector)
+together to update last time step's means and variances.
 If I do this backward update $k$ times iteratively, iteration will diverge.
 
 
@@ -251,15 +255,6 @@ See Figure~\ref{fig:phase3_back_infer:temperature} and Figure~\ref{fig:phase3_ba
         \caption{Inference Errors of \textbf{Humidity} Data at Different Budget Level}
 \label{fig:phase3_back_infer:humidity}
 \end{figure}
-
-
-
-%\begin{figure}[h]
-%\centering
-        %\includegraphics[width=0.8\textwidth, height=0.8\textheight]{progress.ps}
-%\caption{Discovery Percentage as Function of Iteration for $R_1$ and $R_6$}
-%\label{fig:progress}
-%\end{figure}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
