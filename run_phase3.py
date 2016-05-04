@@ -81,16 +81,7 @@ def findLargestK(error, k, m=50):
 def regressionErrorLasso(model, input, target):
     Predict = model.predict(input)
     Error = Predict - target
-    print np.mean(Error)
     return np.var(Error)
-
-
-def regressionError(beta, input, target):
-    error = np.zeros(len(input))
-    for (i, x) in enumerate(input):
-        predict = beta[0] + np.dot(beta[1:], x)
-        error[i] = target[i] - predict
-    return np.var(error)
 
 
 def findRelevantVariables(Beta, n=48, m=50):
@@ -138,8 +129,7 @@ def learnModelHourStationary(train_data, n=48, m=50):
         model.fit(X, y)
         Beta[i, 0] = model.intercept_
         Beta[i, 1:] = model.coef_
-        # Variance[i] = regressionErrorLasso(model, X, y)
-        Variance[i] = regressionError(Beta[i, :], X, y)
+        Variance[i] = regressionErrorLasso(model, X, y)
         log.add().debug('Parameter for sensor %d: %s, %.2f' %
                         (i, str(Beta[i, :]), Variance[i]))
         log.sub()
@@ -149,9 +139,9 @@ def learnModelHourStationary(train_data, n=48, m=50):
         InitMean[i] = np.mean(train_data[i, :])
         InitVar[i] = np.var(train_data[i, :])
 
-    log.add().info('Init mean = %s' % str(InitMean))
-    log.info('Init variance = %s' % str(InitVar))
-    log.info('Cond variance = %s' % str(Variance))
+    log.add().debug('Init mean = %s' % str(InitMean))
+    log.debug('Init variance = %s' % str(InitVar))
+    log.debug('Cond variance = %s' % str(Variance))
     log.sub()
     return Beta, Variance, InitMean, InitVar
 
@@ -291,7 +281,7 @@ if __name__ == '__main__':
     # lg.basicConfig(level=lg.DEBUG)
     lg.basicConfig(level=lg.INFO)
     log = IndentedLoggerAdapter(lg.getLogger(__name__))
-    np.set_printoptions(precision=3)
+    np.set_printoptions(precision=4)
     title = ['sensors', 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0,
              5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0,
              11.5, 12.0, 12.5, 13.0, 13.5, 14.0, 14.5, 15.0, 15.5, 16.0,

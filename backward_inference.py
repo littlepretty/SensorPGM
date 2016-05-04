@@ -90,9 +90,9 @@ def findRelevantVariables(Beta, n=48, m=50):
     return RelevantVar
 
 
-def regressionErrorLasso(model, input, target):
-    Predict = model.predict(input)
-    Error = np.subtract(Predict, target)
+def regressionErrorLasso(model, X, y):
+    Predict = model.predict(X)
+    Error = np.subtract(Predict, y)
     return np.var(Error)
 
 
@@ -127,7 +127,7 @@ def learnModelHourStationary(train_data, n=48, m=50):
         """no intercept in the model"""
         model = linear_model.Lasso(alpha=alpha, fit_intercept=True,
                                    copy_X=True, max_iter=10000,
-                                   warm_start=False, tol=0.0001)
+                                   warm_start=False)
         model.fit(X, y)
         Beta[i, 0] = model.intercept_
         Beta[i, 1:] = model.coef_
@@ -144,6 +144,7 @@ def learnModelHourStationary(train_data, n=48, m=50):
 
     log.add().debug('Init mean = %s' % str(InitMean))
     log.debug('Init variance = %s' % str(InitVar))
+    log.debug("Cond variance = %s" % str(Variance))
     log.sub()
     return Beta, Variance, InitMean, InitVar
 
@@ -369,7 +370,7 @@ if __name__ == '__main__':
                  p2_h_win, p2_h_var, p2_d_win, p2_d_var,
                  p3_h_win, p3_h_var, y_max=3.5)
 
-    alpha = 0.3
+    alpha = 0.2
     topic = 'humidity_back_infer'
     log.info('Processing %s' % topic)
     p3_h_win, p3_h_var = \
