@@ -225,18 +225,16 @@ When we have a set of $k$ observed sensors $\mathbf{O}$ at $t+1$ time step,
 we can update $\mu^{t}$ and $\Sigma^{t}$ using Kalman Gain:
 \begin{align}
         & K^t = \Sigma^t H^T (H\Sigma^{t}H^T + R)^{-1} \\
-        & \mu^t = \mu^t + K^t(\mathbf{O}^t - H\mu^t) \\
+        & \mu^t = \mu^t + K^t(O^t - H\mu^t) \\
         & \Sigma^t = (I - K^t H)\Sigma^t 
 \end{align}
 where $H$ is $m+1$ by $k$ parameter matrix, extracted from the rows of observed sensor in $A$,
 $R$ is $k$ by $k$ diagonal matrix constructed from $Q$ using the rows of the observed sensors,
 $\mathbf{O}$ is a $k$ by 1 vector of observed sensor data.
-
 Now we can use again Equation~\ref{equ:transition:mu} and Equation~\ref{equ:transition:sigma}
 to predict the unobserved sensor at time $t+1$.
-Notice that $k$ observations are used (e.g. $\mathbf{O}$ is a vector)
+Notice that $k$ observations are used (e.g. $O$ is a vector)
 together to update last time step's means and variances.
-If I do this backward update $k$ times iteratively, iteration will diverge.
 
 
 \subsection{Experiment Results}

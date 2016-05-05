@@ -319,10 +319,10 @@ def hourStationary(train_data, test_data):
         log.add().info('Avg Variance error =\t%.4f with %d budget' %
                        (var_errs[i], budget_cnts[i]))
         log.sub()
-    log.sub()
-    log.add().info("#Window match = \t%s" % win_match)
+    log.info("#Window match = \t%s" % win_match)
     log.info("#Variance match = \t%s" % var_match)
     log.sub()
+
     return win_errs, var_errs
 
 
@@ -332,7 +332,6 @@ def main(train_file, test_file):
     """test_data = m * (2 day) shape matrix"""
     test_data = readInData(test_file)
     h_win_err, h_var_err = hourStationary(train_data, test_data)
-
     return h_win_err, h_var_err
 
 
@@ -350,7 +349,6 @@ if __name__ == '__main__':
              9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 12.5, 13.0, 13.5,
              14.0, 14.5, 15.0, 15.5, 16.0, 16.5, 17.0, 17.5, 18.0, 18.5,
              19.0, 19.5, 20.0, 20.5, 21.0, 21.5, 22.0, 22.5, 23.0, 23.5, 0.0]
-    # budget_cnts = [5]
     budget_cnts = [0, 5, 10, 20, 25]
 
     alpha = 0.08
@@ -358,6 +356,7 @@ if __name__ == '__main__':
     log.info('Processing %s' % topic)
     p3_h_win, p3_h_var = \
         main('intelTemperatureTrain.csv', 'intelTemperatureTest.csv')
+    # copy results of phase 1 and phase 2
     p1_win = [1.167, 1.049, 0.938, 0.692, 0.597]
     p1_var = [1.167, 0.967, 0.810, 0.560, 0.435]
     p2_h_win = [2.366, 1.561, 0.905, 0.412, 0.274]
@@ -375,6 +374,7 @@ if __name__ == '__main__':
     log.info('Processing %s' % topic)
     p3_h_win, p3_h_var = \
         main('intelHumidityTrain.csv', 'intelHumidityTest.csv')
+    # copy results of phase 1 and phase 2
     p1_win = [3.470, 3.119, 2.782, 2.070, 1.757]
     p1_var = [3.470, 3.160, 2.847, 2.172, 1.822]
     p2_h_win = [5.365, 2.701, 1.524, 0.689, 0.452]

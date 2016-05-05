@@ -18,3 +18,9 @@ Course Project
 * `python_log_indenter` for indented logging output
 * `sklearn` for Lasso regression
 
+
+### Notice
+I have manually *removed* the first row and first column (headers) of test and
+train data file, to make my code more easy to write and read.
+This is true for all three phases.
+
